@@ -47,6 +47,11 @@ apt install -y docker.io
 systemctl enable docker --now
 usermod -aG docker $user
 
+# damsafe
+echo "${G1}Dockerizing damsafe${NC}"
+docker build -t damsafe:latest /app
+docker run -d --restart -p 5000:5000 --name damsafe damsafe
+
 # crackmapexec via docker
 echo "${G1}Installing crackmapexec${NC}"
 docker pull byt3bl33d3r/crackmapexec
@@ -66,7 +71,7 @@ echo "${G1}Installing golang${NC}"
 apt-get install -y golang
 echo 'export GOROOT=/usr/lib/go' >> /home/$user/.zshrc
 echo 'export GOPATH=$HOME/go' >> /home/$user/.zshrc
-echo 'export PATH=$GOPATH/bin:$GOROOT/bin:$PATH' >> /home/$user/.zshrc
+echo "export PATH=$GOPATH/bin:$GOROOT/bin:/home/$user/.local/bin:$PATH" >> /home/$user/.zshrc
 
 # kerbrute
 echo "${G1}Installing Kerbrute${NC}"
@@ -100,6 +105,8 @@ echo "${G1}Installing AutoRecon prerequisites${NC}"
 apt install -y seclists curl enum4linux gobuster nbtscan nikto nmap onesixtyone oscanner smbclient smbmap smtp-user-enum snmp sslscan sipvicious tnscmd10g whatweb wkhtmltopdf python3-pip
 echo "${G1}Installing AutoRecon${NC}"
 pip install git+https://github.com/Tib3rius/AutoRecon.git
+apt-get install python3-venv
+
 
 # bloodhound
 echo "${G1}Installing Bloodhound Prerequisites${NC}"
