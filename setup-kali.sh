@@ -50,7 +50,7 @@ usermod -aG docker $user
 # damsafe
 echo "${G1}Dockerizing damsafe${NC}"
 docker build -t damsafe:latest ./app
-docker run -d --restart -p 5000:5000 --name damsafe damsafe
+docker run -d --restart always -p 5000:5000 --name damsafe damsafe
 
 # crackmapexec via docker
 echo "${G1}Installing crackmapexec${NC}"
