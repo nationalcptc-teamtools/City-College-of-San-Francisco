@@ -1,1 +1,0 @@
-Sources and external repositories.
