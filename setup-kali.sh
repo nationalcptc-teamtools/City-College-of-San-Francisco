@@ -21,6 +21,8 @@ echo "${G1}Installing node.js${NC}"
 curl -sL https://deb.nodesource.com/setup_lts.x | bash -
 apt-get install -y nodejs
 
+
+
 # yarn
 echo "${G1}Installing yarn${NC}"
 apt-get install -y yarn
@@ -46,11 +48,6 @@ echo "${G1}Installing docker${NC}"
 apt install -y docker.io
 systemctl enable docker --now
 usermod -aG docker $user
-
-# damsafe
-echo "${G1}Dockerizing damsafe${NC}"
-docker build -t damsafe:latest ./app
-docker run -d --restart always -p 5000:5000 --name damsafe damsafe
 
 # crackmapexec via docker
 echo "${G1}Installing crackmapexec${NC}"
@@ -89,9 +86,9 @@ gem install evil-winrm
 # chisel
 echo "${G1}Installing chisel${NC}"
 curl https://i.jpillora.com/chisel! | bash
-wget https://github.com/jpillora/chisel/releases/download/v1.7.3/chisel_1.7.3_windows_amd64.gz
-gunzip chisel_1.7.3_windows_amd64.gz
-mv chisel_1.7.3_windows_amd64 chisel.exe
+wget https://github.com/jpillora/chisel/releases/download/v1.7.7/chisel_1.7.7_windows_amd64.gz
+gunzip chisel_1.7.7_windows_amd64.gz
+mv chisel_1.7.7_windows_amd64 chisel.exe
 ln -s /usr/local/bin/chisel chisel
 
 # static binaries
@@ -100,13 +97,16 @@ git clone https://github.com/andrew-d/static-binaries.git
 ln -s static-binaries/binaries/linux/x86_64 linux-bin
 ln -s static-binaries/binaries/windows/x64 win-bin
 
+# seclists
+echo "${G1}Installing SecLists${NC}"
+git clone https://github.com/danielmiessler/SecLists.git /usr/share/wordlists/seclists
+
 # autorecon and prerequisites
 echo "${G1}Installing AutoRecon prerequisites${NC}"
 apt install -y seclists curl enum4linux gobuster nbtscan nikto nmap onesixtyone oscanner smbclient smbmap smtp-user-enum snmp sslscan sipvicious tnscmd10g whatweb wkhtmltopdf python3-pip
 echo "${G1}Installing AutoRecon${NC}"
 pip install git+https://github.com/Tib3rius/AutoRecon.git
 apt-get install python3-venv
-
 
 # bloodhound
 echo "${G1}Installing Bloodhound Prerequisites${NC}"
@@ -116,6 +116,7 @@ systemctl start neo4j
 echo "${G1}Installing Bloodhound GUI${NC}"
 curl -L "https://github.com/BloodHoundAD/BloodHound/releases/download/4.0.1/BloodHound-linux-x64.zip" --output /tmp/bloodhound.zip
 unzip /tmp/bloodhound.zip -d /opt
+apt-get install -y bloodhound
 echo "alias bloodhound='/opt/BloodHound-linux-x64/BloodHound --no-sandbox'" >> /home/$user/.zshrc
 echo "${G1}Goto http://localhost:7474/ in a browser and login with neo4j:neo4j and change the password"
 echo "Aliases added:"
