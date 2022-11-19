@@ -85,3 +85,20 @@ psexec.py <user>:@<ip> -hashes <NTLM hash>
 
 Kerberoasting
 # GetUserSPNs.py <domain>/<user>:<password> -dc-ip <server ip> -request
+
+GPP Attack
+ 
+Links
+https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Active%20Directory%20Attack.md#scf-and-url-file-attack-against-writeable-share
+https://github.com/cube0x0/CVE-2021-1675
+
+URL File Attacks
+https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Active%20Directory%20Attack.md#scf-and-url-file-attack-against-writeable-share![image](https://user-images.githubusercontent.com/77715808/202856425-18e76cdd-e59f-41a9-a436-764b6ce0b6e2.png)
+
+PrintNightmare (CVE-2021-1675)![image](https://user-images.githubusercontent.com/77715808/202856407-098521b8-3c5b-4cc0-945f-d923b7711098.png)
+cube0x0 RCE - https://github.com/cube0x0/CVE-2021-1675
+calebstewart LPE - https://github.com/calebstewart/CVE-2021-1675
+
+What is ZeroLogon? - https://www.trendmicro.com/en_us/what-is/zerologon.ht
+dirkjanm CVE-2020-1472 - https://github.com/dirkjanm/CVE-2020-1472
+SecuraBV ZeroLogon Checker - https://github.com/SecuraBV/CVE-2020-1472![image](https://user-images.githubusercontent.com/77715808/202856362-66ba1dfb-0eb0-467a-826c-4f6cbdb1317d.png)
