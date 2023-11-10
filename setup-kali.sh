@@ -8,19 +8,31 @@ G1='\033[1;32m'
 G0='\033[0;32m'
 NC='\033[0m'
 CY='\033[1;36m'
-# for bloodhound prereqs and yarn
+
+echo "${G1}Install wordlists (Seclists)? (y/n)${NC}"
+read wordlists
+
+# initial update
+echo "${G1}Updating apt${NC}"
+sudo apt-get update && apt-get install -y curl
+
+# for prereqs
 echo "${G1}Setting up keys and repos${NC}"
 echo "deb http://httpredir.debian.org/debian stretch-backports main" | tee -a /etc/apt/sources.list.d/stretch-backports.list
 wget -O - https://debian.neo4j.com/neotechnology.gpg.key | apt-key add -
-echo 'deb https://debian.neo4j.com stable 4.0' > /etc/apt/sources.list.d/neo4j.list
+echo 'deb https://debian.neo4j.com stable 5' > /etc/apt/sources.list.d/neo4j.list
 curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
 echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
 
 # nodejs install script, runs apt-get update
 echo "${G1}Installing node.js${NC}"
-curl -sL https://deb.nodesource.com/setup_lts.x | bash -
-apt-get install -y nodejs
-
+# curl -sL https://deb.nodesource.com/setup_lts.x | bash -
+# apt-get install -y nodejs
+apt-get install -y ca-certificates gnupg
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+NODE_MAJOR=20
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+apt-get install nodejs -y
 
 
 # yarn
@@ -31,7 +43,7 @@ apt-get install -y yarn
 echo "${G1}Installing dependencies/tools for exfil/tools server${NC}"
 cd /home/$user/tools
 yarn
-wget https://github.com/DominicBreuker/pspy/releases/download/v1.2.0/pspy64
+wget https://github.com/DominicBreuker/pspy/releases/download/v1.2.1/pspy64
 git clone https://github.com/carlospolop/privilege-escalation-awesome-scripts-suite
 ln -s privilege-escalation-awesome-scripts-suite/linPEAS/linpeas.sh linpeas.sh
 ln -s privilege-escalation-awesome-scripts-suite/winPEAS/winPEASbat/winPEAS.bat winpeas.bat
@@ -86,9 +98,9 @@ gem install evil-winrm
 # chisel
 echo "${G1}Installing chisel${NC}"
 curl https://i.jpillora.com/chisel! | bash
-wget https://github.com/jpillora/chisel/releases/download/v1.7.7/chisel_1.7.7_windows_amd64.gz
-gunzip chisel_1.7.7_windows_amd64.gz
-mv chisel_1.7.7_windows_amd64 chisel.exe
+wget https://github.com/jpillora/chisel/releases/download/v1.9.1/chisel_1.9.1_windows_amd64.gz
+gunzip chisel_1.9.1_windows_amd64.gz
+mv chisel_1.9.1_windows_amd64 chisel.exe
 ln -s /usr/local/bin/chisel chisel
 
 # static binaries
@@ -98,8 +110,10 @@ ln -s static-binaries/binaries/linux/x86_64 linux-bin
 ln -s static-binaries/binaries/windows/x64 win-bin
 
 # seclists
-echo "${G1}Installing SecLists${NC}"
-git clone https://github.com/danielmiessler/SecLists.git /usr/share/wordlists/seclists
+if [ "$wordlists" = "y" ]; then
+    echo "${G1}Installing SecLists${NC}"
+    git clone https://github.com/danielmiessler/SecLists.git /usr/share/wordlists/seclists
+fi
 
 # autorecon and prerequisites
 echo "${G1}Installing AutoRecon prerequisites${NC}"
@@ -114,7 +128,7 @@ apt-get install -y apt-transport-https
 apt-get install -y neo4j
 systemctl start neo4j
 echo "${G1}Installing Bloodhound GUI${NC}"
-curl -L "https://github.com/BloodHoundAD/BloodHound/releases/download/4.0.1/BloodHound-linux-x64.zip" --output /tmp/bloodhound.zip
+curl -L "https://github.com/BloodHoundAD/BloodHound/releases/download/4.3.1/BloodHound-linux-x64.zip" --output /tmp/bloodhound.zip
 unzip /tmp/bloodhound.zip -d /opt
 apt-get install -y bloodhound
 echo "alias bloodhound='/opt/BloodHound-linux-x64/BloodHound --no-sandbox'" >> /home/$user/.zshrc
