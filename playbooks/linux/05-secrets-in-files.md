@@ -4,7 +4,7 @@
 
 - **Phase:** Authenticated enumeration or exposed-file review
 - **Risk:** 🟢 Safe / 🔴 Risky: reading files already permitted to the current account and making one login with a recovered credential are Safe; changing permissions, replacing keys, executing scripts or using a secret to alter another system is Risky and needs approval every time
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** none in the library yet; use the finding that matches the exposed service or credential
 - **Runs on:** Linux filesystems, application directories, home directories, backups, source/configuration trees and TLS directories
 - **Ports:** not service-specific; initial access may come through SSH, FTP, NFS or a web application

@@ -4,7 +4,7 @@
 
 - **Phase:** No credentials (mapping)
 - **Risk:** 🟢 Safe: single requests that read headers, titles and versions. 🟡 Noisy: informational nmap web scripts, TLS scans. 🔴 Risky: running any exploit or vulnerability scanner. Ask the client contact in writing first, every time, and log it.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L22 (`outdated-software`)
 - **Ports:** 80, 443, 8000, 8008, 8080, 8081, 8443, 8888, 9000
 - **Tools:** httpx-toolkit, curl, whatweb, nmap; vendor advisories and public CVE records, checked offline

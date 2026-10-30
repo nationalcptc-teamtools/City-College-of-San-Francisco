@@ -4,7 +4,7 @@
 
 - **Phase:** Initial access or credential validation
 - **Risk:** 🟢 Safe / 🟡 Noisy / 🔴 Risky: banners, SSH configuration review and one login with a credential already found elsewhere are Safe; blank/default/password guessing is Noisy and requires the lockout check first; post-login changes or execution beyond approved enumeration are Risky and need approval every time
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L20 (`default-credentials`) for default passwords; no dedicated weak/reused Linux-password entry yet
 - **Runs on:** SSH servers, Linux administrator accounts and service administration interfaces
 - **Ports:** 22 (SSH) and product-specific administration ports

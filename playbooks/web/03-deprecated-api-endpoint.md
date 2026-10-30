@@ -3,9 +3,9 @@
 # 3. Deprecated API Endpoint Sends Data to Any Host
 
 - **Phase:** No credentials
-- **Risk:** 🟡 Noisy *(proposed)*: the call makes the client's server connect out to our jump host and triggers an app action (in 2024, a print job). Any login with credentials it leaks is one valid login: 🟢 Safe under the login rule, but pass them to the team first.
-- **Tier:** Recognize *(proposed)*
-- **Finding:** library L16 (`idor-broken-access-control`) *(proposed)*
+- **Risk:** 🟡 Noisy: the call makes the client's server connect out to our jump host and triggers an app action (in 2024, a print job). Any login with credentials it leaks is one valid login: 🟢 Safe under the login rule, but pass them to the team first.
+- **Tier:** Recognize
+- **Finding:** library L16 (`idor-broken-access-control`)
 - **Ports:** 80, 443
 - **Tools:** Burp Suite, a listener on the jump host
 - **You need:** the route list (see #01); a listener on **our jump host only**
@@ -23,7 +23,7 @@ Old API versions often keep running after a new one replaces them, without the n
 - `evidence/F-NNN-02.png`: what the listener received, secrets and personal data redacted.
 
 ## Practice
-- PortSwigger Web Security Academy, SSRF labs *(proposed)*; the idea is the same, with the client's server connecting out
+- PortSwigger Web Security Academy, SSRF labs; the idea is the same, with the client's server connecting out
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

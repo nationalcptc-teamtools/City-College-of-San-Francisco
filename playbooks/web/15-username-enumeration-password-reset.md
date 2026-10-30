@@ -3,9 +3,9 @@
 # 15. Username Enumeration via Password Reset
 
 - **Phase:** No credentials
-- **Risk:** 🟡 Noisy *(proposed)*: each try may send a reset email to a real person. Test with one account the team controls and one made-up name; never run a list.
-- **Tier:** Recognize *(proposed)*
-- **Finding:** library L17 (`web-authentication-weakness`) *(proposed)*
+- **Risk:** 🟡 Noisy: each try may send a reset email to a real person. Test with one account the team controls and one made-up name; never run a list.
+- **Tier:** Recognize
+- **Finding:** library L17 (`web-authentication-weakness`)
 - **Ports:** 80, 443
 - **Tools:** Browser, Burp Suite
 - **You need:** one valid username or email (ours, if we have one) and one made-up one
@@ -23,7 +23,7 @@ The password-reset page answers differently for real and fake accounts. An attac
 - `evidence/F-NNN-02.png`: the response for the made-up one, side by side if possible.
 
 ## Practice
-- PortSwigger Web Security Academy, authentication labs *(proposed)*
+- PortSwigger Web Security Academy, authentication labs
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

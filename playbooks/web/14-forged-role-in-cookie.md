@@ -4,8 +4,8 @@
 
 - **Phase:** No credentials (self-registration)
 - **Risk:** 🟢 Safe to check: decode our own cookie and see if the role is in it. **Using the forged admin cookie on equipment controls is 🔴 Risky: ask the client contact in writing first, every time.**
-- **Tier:** Must know *(proposed)*
-- **Finding:** library L16 (`idor-broken-access-control`) *(proposed)*
+- **Tier:** Must know
+- **Finding:** library L16 (`idor-broken-access-control`)
 - **Ports:** 80, 443
 - **Tools:** Browser developer tools, Burp Suite, a base64 decoder
 - **You need:** a session cookie (in 2024, from a public registration page)
@@ -29,7 +29,7 @@ The app keeps the user's role inside the cookie, only base64-encoded, with no si
 - `evidence/F-NNN-03.png`: the equipment action and its result, only with that permission.
 
 ## Practice
-- PortSwigger Web Security Academy, access control and authentication labs *(proposed)*
+- PortSwigger Web Security Academy, access control and authentication labs
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

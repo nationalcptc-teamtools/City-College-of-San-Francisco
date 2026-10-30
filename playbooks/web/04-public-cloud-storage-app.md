@@ -3,8 +3,8 @@
 # 4. Public Cloud Storage Hosts an App Anyone Can Use
 
 - **Phase:** No credentials (cloud)
-- **Risk:** 🟡 Noisy *(proposed)*: viewing is 🟢 Safe, but submitting the form writes a new file to the client's storage. Submit once, with obviously fake data, and note the file it made.
-- **Tier:** Recognize *(proposed)*
+- **Risk:** 🟡 Noisy: viewing is 🟢 Safe, but submitting the form writes a new file to the client's storage. Submit once, with obviously fake data, and note the file it made.
+- **Tier:** Recognize
 - **Finding:** none in the library yet
 - **Ports:** 443
 - **Tools:** Browser, AWS CLI
@@ -16,7 +16,11 @@ In 2024 a web app hosted straight from a public cloud storage bucket (AWS S3) wa
 **Fix to recommend:** block public access on the bucket and grant only what each user needs (least privilege).
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "AWS - Public S3 Bucket Arbitrary Boarding Passes.docx" (its first finding). Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+**Methodology:** 
+- **Start with somewhere public** like a site or webapp.
+- **What ** - Normal looking network requests could be unprotected from unprotected or unintended consequences.
+A url `https://s3.us-east-1.amazonaws.com/rakmsbarcode2024/index.html`can be manipulated to produce a different result than intended:
+`https://s3.us-east-1.amazonaws.com/rakmsbarcode2024**01111111111111111/index[.]html` - the result was presenting a form to create a file in an index instead of showing a file in an index
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the public app with the bucket address visible.

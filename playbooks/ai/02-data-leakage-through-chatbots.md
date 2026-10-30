@@ -4,7 +4,7 @@
 
 - **Phase:** Application testing
 - **Risk:** 🟢 Safe for one read-only request using our own test data. Repeated requests are 🟡 Noisy. Testing with real users' data, broader documents or a tool action is 🔴 Risky: ask the client contact in writing first, every time, and log it.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** no dedicated library entry; use L16 (`idor-broken-access-control`) when the root cause is missing object-level access control
 - **Runs on:** chatbots and assistants connected to documents, user records, secrets or APIs
 - **Tools:** Browser, Burp Suite, transcript with timestamps

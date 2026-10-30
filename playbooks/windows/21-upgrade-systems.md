@@ -3,9 +3,9 @@
 # 21. Upgrade End-of-Life Systems
 
 - **Phase:** Low credentials (manual check); version scans show most of it with no credentials
-- **Risk:** 🟢 Safe *(proposed)*: looking only
+- **Risk:** 🟢 Safe: looking only
 - **Tier:** Recognize
-- **Finding:** L22 (`outdated-software`) *(proposed)*
+- **Finding:** L22 (`outdated-software`)
 - **Covers:** Windows XP, Vista, 7, 8, 8.1; Server 2003 through 2012
 
 ## What it is

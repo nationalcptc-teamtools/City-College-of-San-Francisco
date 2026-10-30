@@ -1,5 +1,26 @@
 # Kickoff Checklist (first 30 minutes)
 
+## Quick start (copy-paste, once per person)
+
+Replace `<yourname>` (lowercase, e.g. `alice`) and `<repo-clone>` (where you cloned this repo).
+
+```
+<repo-clone>/scripts/make-workcopy.sh <yourname> <repo-clone>
+cd ~/cptc-work
+nohup python3 -u tools/notebook.py --name <yourname> > ~/notebook.log 2>&1 &
+sleep 1; cat ~/notebook.log
+scripts/logged-shell.sh <yourname>
+```
+
+- Line 1 refuses if `~/cptc-work` already exists. Skip it if you have already made your copy.
+- Line 3 starts the notebook in the background. It keeps running if you close the terminal.
+- Line 4 prints the address (`Notebook: http://127.0.0.1:8765`). Open it in Firefox.
+- Line 5 starts your logged shell.
+- Stop the notebook: `pkill -f tools/notebook.py` (stops every notebook you started, including one on another port)
+- Port already in use? Add `--port 8766` to line 3.
+
+## Checklist
+
 - [ ] Read the **Scope of Work** and **Rules of Engagement** aloud to the whole team
 - [ ] Write the **in-scope ranges** and the **explicit exclusions** on the whiteboard
 - [ ] Note any ROE limits on: password spraying, poisoning/relay, DoS-prone tests, social engineering, OT/ride systems, data exfiltration

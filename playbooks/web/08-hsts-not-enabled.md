@@ -3,9 +3,9 @@
 # 8. HSTS Not Enabled
 
 - **Phase:** No credentials
-- **Risk:** 🟢 Safe *(proposed)*: one request, reading the response headers.
-- **Tier:** Recognize *(proposed)*
-- **Finding:** library L21 (`cleartext-protocols`) *(proposed)*
+- **Risk:** 🟢 Safe: one request, reading the response headers.
+- **Tier:** Recognize
+- **Finding:** library L21 (`cleartext-protocols`)
 - **Ports:** 443
 - **Tools:** curl or PowerShell, Burp Suite
 - **You need:** nothing
@@ -30,7 +30,7 @@ Windows (PowerShell):
 - `evidence/F-NNN-01.png`: the response headers, with the header missing and the host visible.
 
 ## Practice
-- Any HTTPS site the team runs; check its headers *(proposed)*
+- Any HTTPS site the team runs; check its headers
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

@@ -4,7 +4,7 @@
 
 - **Phase:** Application testing
 - **Risk:** 🟢 Safe for one manual prompt that only returns text. Repeated prompt sequences are 🟡 Noisy. Planting content, calling a tool or changing data is 🔴 Risky: ask the client contact in writing first, every time, and log it.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** no library entry yet
 - **Runs on:** chatbots and assistants that accept direct prompts or read user-controlled content
 - **Tools:** Browser, Burp Suite, transcript with timestamps

@@ -4,8 +4,8 @@
 
 - **Phase:** No credentials (scan only)
 - **Risk:** The tester is 🟡 Noisy: it changes nothing, but the domain controller logs every attempt. **The exploit is Prohibited: it resets the domain controller's machine password, which breaks the domain. Run the tester only.**
-- **Tier:** Must know, at check level only *(proposed)*
-- **Finding:** library L22 (`outdated-software`) *(proposed)*
+- **Tier:** Must know, at check level only
+- **Finding:** library L22 (`outdated-software`)
 - **Runs on:** domain controllers, Server 2008 through 2022, when unpatched
 - **Ports:** 135, 445
 - **Tools:** `zerologon_tester.py` from https://github.com/SecuraBV/CVE-2020-1472

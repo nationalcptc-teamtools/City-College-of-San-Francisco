@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery (no credentials needed)
 - **Risk:** 🟢 Safe / 🟡 Noisy / 🔴 Risky: a limited system-information read is Safe; guessing three common strings or walking the full tree is Noisy; any SNMP write is Risky and needs approval every time
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L02 (`snmp-default-community`)
 - **Runs on:** Linux appliances, routers, switches, printers, cameras and other SNMP-managed devices
 - **Ports:** 161/UDP (SNMP)

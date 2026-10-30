@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery (identification first; credentials only with approval)
 - **Risk:** 🟢 Safe / 🔴 Risky / Prohibited: identifying the product is Safe; attempting a password or logging in to an HMI is Risky—**ask the client contact in writing first, every time**; brute force or any action that could stop or damage a process without permission is Prohibited
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L20 (`default-credentials`); related library L18 (`ot-network-segmentation`) when reachable from IT
 - **Runs on:** HMI servers, operator stations, engineering workstations and vendor engineering suites
 - **Ports:** product-specific web, VNC and engineering-service ports

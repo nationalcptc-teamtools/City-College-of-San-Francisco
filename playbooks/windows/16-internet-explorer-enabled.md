@@ -3,9 +3,9 @@
 # 16. Internet Explorer Enabled
 
 - **Phase:** Low credentials (manual check over RDP)
-- **Risk:** 🟢 Safe *(proposed)*: looking only
-- **Tier:** Reference *(proposed)*
-- **Finding:** L22 (`outdated-software`) *(proposed)*
+- **Risk:** 🟢 Safe: looking only
+- **Tier:** Reference
+- **Finding:** L22 (`outdated-software`)
 - **Runs on:** Windows 95 through Windows 10
 - **Tools:** RDP
 

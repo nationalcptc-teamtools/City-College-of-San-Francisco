@@ -3,6 +3,7 @@
 Test files start with `import support` so the code under test can be imported.
 """
 
+import os
 import shutil
 import sys
 import tempfile
@@ -147,6 +148,97 @@ def make_library_entry(title="Example unsafe service setting", severity="High",
     """Return the text of a fake findings-library entry."""
     return LIBRARY_ENTRY.format(title=title, severity=severity,
                                 technical_detail=technical_detail)
+
+
+# A fake terminal transcript, shaped like what scripts/logged-shell.sh saves
+# with util-linux `script`, holding every control-code case the log viewer's
+# cleaner must handle (BUILD-SPEC Logs). Logs can hold hostile HTML because
+# we attack things, so the curl answer carries a <script> tag (Constraint 9).
+# Kept here as text, not a committed .log file: .gitignore excludes *.log, and
+# the bytes must be exact, which a text editor could quietly change.
+HOSTILE_LOG = (
+    # `script`'s own header and footer end in a plain LF.
+    'Script started on 2026-11-07 10:15:00+00:00 [COMMAND="/bin/bash --rcfile fake-rc"]\n'
+    # OSC window title ended by BEL, a `?` private-mode CSI, then the prompt.
+    # A typo fixed with Backspace echoes BS then CSI "erase line" (ESC [ K),
+    # so the code must be stripped before the backspace is applied.
+    "\x1b]0;alice@kali: ~\x07\x1b[?2004h"
+    "[2026-11-07 10:15:09 UTC] alice@kali:~$ curl -i http://10.0.0.1/inn\x08\x1b[Kdex.html\r\n"
+    # A Windows-style answer reaches the transcript as CR CR LF; the empty
+    # line between headers and body is one too.
+    "HTTP/1.1 200 OK\r\r\n"
+    "Server: fake-iis\r\r\n"
+    "\r\r\n"
+    '<script>alert("fake-xss")</script>\r\n'
+    "[2026-11-07 10:15:30 UTC] alice@kali:~$ ./fake-download.sh\r\n"
+    # A progress bar redrawn twice with lone CRs: only the last part stays.
+    "fake-dl  10%\rfake-dl  55%\rfake-dl 100%\r\n"
+    # Two-character escapes (ESC ( B, ESC ) 0, ESC =, ESC >), SGR colour
+    # codes, and a CSI with an intermediate byte (ESC [ 0 space q).
+    "\x1b(B\x1b)0\x1b=\x1b[01;31mERROR\x1b[0m: fake failure\x1b>\x1b[0 q\r\n"
+    # An OSC 8 link ended by ESC backslash instead of BEL.
+    "see \x1b]8;;http://10.0.0.1/\x1b\\the fake link\x1b]8;;\x1b\\ for details\r\n"
+    "[2026-11-07 10:16:40 UTC] alice@kali:~$ exit\r\n"
+    "exit\r\n"
+    'Script done on 2026-11-07 10:16:40+00:00 [COMMAND_EXIT_CODE="0"]\n'
+)
+
+# HOSTILE_LOG after the spec's four cleaning steps, worked out by hand.
+# NT6-01 checks the cleaner against it.
+HOSTILE_LOG_CLEANED = (
+    'Script started on 2026-11-07 10:15:00+00:00 [COMMAND="/bin/bash --rcfile fake-rc"]\n'
+    "[2026-11-07 10:15:09 UTC] alice@kali:~$ curl -i http://10.0.0.1/index.html\n"
+    "HTTP/1.1 200 OK\n"
+    "Server: fake-iis\n"
+    "\n"
+    '<script>alert("fake-xss")</script>\n'
+    "[2026-11-07 10:15:30 UTC] alice@kali:~$ ./fake-download.sh\n"
+    "fake-dl 100%\n"
+    "ERROR: fake failure\n"
+    "see the fake link for details\n"
+    "[2026-11-07 10:16:40 UTC] alice@kali:~$ exit\n"
+    "exit\n"
+    'Script done on 2026-11-07 10:16:40+00:00 [COMMAND_EXIT_CODE="0"]\n'
+)
+
+# The matching command index, in logged-shell.sh's line format:
+# time (exit code) [directory] command. The cleaned transcript can mangle
+# commands, so the viewer shows these exact lines beside it.
+HOSTILE_CMDS = (
+    "2026-11-07 10:15:12 UTC (exit 0) [/home/alice] curl -i http://10.0.0.1/index.html\n"
+    "2026-11-07 10:16:38 UTC (exit 1) [/home/alice] ./fake-download.sh\n"
+)
+
+
+def make_hostile_logs(logdir, base="alice_20261107T101500Z", mtime=None):
+    """Write HOSTILE_LOG and HOSTILE_CMDS into logdir as <base>.log and
+    <base>.cmds.log, and return both paths.
+
+    logdir must be inside tests/.tmp/ (e.g. a make_worktree() folder, so the
+    logs are removed with it); it is created if needed. `mtime` (seconds)
+    sets both files' modified time, so list tests can order several logs.
+    """
+    logdir = Path(logdir)
+    # Like write_fake_file(): a wrong argument must not write outside .tmp/.
+    if TMP_DIR.resolve() not in logdir.resolve().parents:
+        raise ValueError("fake log folder is outside tests/.tmp: " + str(logdir))
+    logdir.mkdir(parents=True, exist_ok=True)
+    log_path = logdir / (base + ".log")
+    cmds_path = logdir / (base + ".cmds.log")
+    # Check both names before writing either, so a base such as "../x" or an
+    # absolute path writes nothing at all.
+    for path in (log_path, cmds_path):
+        if path.resolve().parent != logdir.resolve():
+            raise ValueError("fake log name leaves the log folder: " + base)
+    for path, text in ((log_path, HOSTILE_LOG), (cmds_path, HOSTILE_CMDS)):
+        # Bytes, so no newline translation touches the CRs. "xb" refuses an
+        # existing file, so two calls with the same base fail loudly instead
+        # of one silently replacing the other's log.
+        with path.open("xb") as handle:
+            handle.write(text.encode("utf-8"))
+        if mtime is not None:
+            os.utime(str(path), (mtime, mtime))
+    return log_path, cmds_path
 
 
 def remove_worktree(root):

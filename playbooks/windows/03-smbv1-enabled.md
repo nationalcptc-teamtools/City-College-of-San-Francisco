@@ -3,9 +3,9 @@
 # 3. SMBv1 Enabled
 
 - **Phase:** No credentials (scan only)
-- **Risk:** 🟢 Safe *(proposed)*: a version check
-- **Tier:** Recognize *(proposed)*
-- **Finding:** library L22 (`outdated-software`) *(proposed)*
+- **Risk:** 🟢 Safe: a version check
+- **Tier:** Recognize
+- **Finding:** library L22 (`outdated-software`)
 - **Runs on:** Windows XP, 7, early Windows 10, Server 2016; later versions have it off by default but can turn it on
 - **Ports:** 139, 445 (SMB)
 - **Tools:** nmap

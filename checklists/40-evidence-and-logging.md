@@ -8,6 +8,7 @@ The report is only as good as the evidence. Novices: **this sheet is your main j
 ## Every session
 - [ ] Start `scripts/logged-shell.sh <yourname>`. Every command is captured with a timestamp in the prompt, and `*.cmds.log` gets one line per command (time, exit code, directory, command), which is the quick index for incident reports.
 - [ ] Windows box: start every PowerShell window with `Start-Transcript … -IncludeInvocationHeader` (exact commands in `scripts/logged-shell.md`)
+- [ ] Windows box: to open a transcript in the notebook's Logs view, copy it to Kali with `scp "$HOME\cptc-logs\*.txt" <your Kali login>@<your Kali IP>:~/cptc-logs/` (needs Kali's ssh server; untested on a real Windows box, see `scripts/logged-shell.md`)
 - [ ] Confirm the system clock is correct (`date`)
 - [ ] Web lane: keep everything going through Burp. For each finding, save the key request and response (right-click the item → "Copy to file" or "Save item") to `evidence/F-XXX-NN-request.txt` and note the time. Burp Community can't save a project, so whatever you don't save is gone when Burp closes.
 
@@ -17,7 +18,7 @@ The report is only as good as the evidence. Novices: **this sheet is your main j
 - [ ] Screenshot showing: **the command, the output, the target IP/hostname, and the clock** in one frame
 - [ ] Make it readable in the report: crop to what matters, use a large enough font that the text is legible at page width, and box or arrow the key line
 - [ ] Name screenshots `evidence/F-XXX-NN.png`
-- [ ] Paste the relevant log lines (with timestamps) into the finding. To find them: look up the time in `*.cmds.log`, then open the full transcript in the notebook's Logs view (if it's built), or in a terminal with `less -R ~/cptc-logs/<file>.log` (type `/` and a word to search, `q` to quit). A plain text editor shows colour codes as junk; `less -R` displays them properly.
+- [ ] Paste the relevant log lines (with timestamps) into the finding. To find them: look up the time in `*.cmds.log`, then open the full transcript in the notebook's Logs view, or in a terminal with `less -R ~/cptc-logs/<file>.log` (type `/` and a word to search, `q` to quit). A plain text editor shows colour codes as junk; `less -R` displays them properly.
 - [ ] Write the reproduction steps **while you remember them**, not at the end
 
 ## Credentials

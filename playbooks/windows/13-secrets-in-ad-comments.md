@@ -3,8 +3,8 @@
 # 13. Sensitive Information in Active Directory Comments
 
 - **Phase:** Low credentials
-- **Risk:** 🟢 Safe *(proposed)*: read-only directory queries
-- **Tier:** Must know *(proposed)*
+- **Risk:** 🟢 Safe: read-only directory queries
+- **Tier:** Must know
 - **Finding:** none in the library yet. L01 covers the anonymous case (#1).
 - **Runs on:** AD domain controllers
 - **Tools:** ldapsearch, or xfreerdp plus "Active Directory Users and Computers"

@@ -3,8 +3,8 @@
 # 10. Indicators of Compromise: Hacking Tools Present
 
 - **Phase:** Low credentials (manual check over RDP or a shell)
-- **Risk:** 🟢 Safe *(proposed)*: looking only
-- **Tier:** Reference *(proposed)*
+- **Risk:** 🟢 Safe: looking only
+- **Tier:** Reference
 - **Finding:** none in the library yet
 - **Runs on:** any Windows host
 - **You need:** a shell or RDP login. Admin or SYSTEM sees more; a low-privileged user can do shallower checks.

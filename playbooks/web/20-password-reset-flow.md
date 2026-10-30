@@ -4,8 +4,8 @@
 
 - **Phase:** No credentials
 - **Risk:** 🟡 Noisy: requesting a reset for our own test account (it sends an email and makes a token). 🔴 Risky: anything that could reset or lock a real user's account. Ask the client contact in writing first, every time, and log it.
-- **Tier:** Recognize *(proposed)*
-- **Finding:** library L17 (`web-authentication-weakness`) *(proposed)*
+- **Tier:** Recognize
+- **Finding:** library L17 (`web-authentication-weakness`)
 - **Ports:** 80, 443
 - **Tools:** Burp Suite, a browser
 - **You need:** a test account whose email inbox we can read

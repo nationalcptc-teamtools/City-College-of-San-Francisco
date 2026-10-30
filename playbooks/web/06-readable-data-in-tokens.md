@@ -3,8 +3,8 @@
 # 6. Readable Data in Tokens, Responses and Files
 
 - **Phase:** No credentials; more shows up after a login
-- **Risk:** 🟢 Safe *(proposed)*: decoding and reading what the app already sends us.
-- **Tier:** Must know *(proposed)*
+- **Risk:** 🟢 Safe: decoding and reading what the app already sends us.
+- **Tier:** Must know
 - **Finding:** none in the library yet
 - **Ports:** 80, 443
 - **Tools:** Burp Suite, browser developer tools, a base64 decoder, a JWT decoder, exiftool (file metadata)
@@ -33,7 +33,7 @@ Barcodes, QR codes and badge data are in the General playbook `general/01-access
 - For metadata: the file name and the fields found.
 
 ## Practice
-- PortSwigger Web Security Academy, JWT and information disclosure labs *(proposed)*
+- PortSwigger Web Security Academy, JWT and information disclosure labs
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

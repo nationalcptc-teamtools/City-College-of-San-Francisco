@@ -8,6 +8,17 @@
 
 **Report date:** [[REPORT_DATE]] | **Version:** [[VERSION]] | **Classification:** Confidential, prepared for [[CLIENT_NAME]]
 
+## Confidentiality and Use
+This report contains security-sensitive information prepared for [[CLIENT_NAME]]. It is intended only for authorized recipients. Store, transmit, and dispose of it according to the competition rules and the client instructions provided during the engagement.
+
+## Assessment limitations
+This report documents observations made during the authorized engagement window and within the stated scope. It does not guarantee that every vulnerability was identified. Findings and recommendations reflect the evidence available at the time of testing.
+
+## Contact
+- **Firm:** [[FIRM_NAME]]
+- **Primary contact:** [[CLIENT_CONTACT]]
+- **Report owner:** [[REPORT_OWNER]]
+
 ---
 
 ## Table of Contents

@@ -19,7 +19,7 @@ This is the one README for the team's tools and scripts: `tools/compile.py`, `to
 | `scripts/pull.sh` | The report writer's pull of every teammate's work into `incoming/<name>/`. Needs `ssh`, `ssh-keygen`, `ssh-copy-id` and `rsync` | Built |
 | `scripts/logged-shell.sh` | Records every terminal session, with a one-line-per-command index. Needs util-linux `script` (default on Kali/Debian) | Built. Walkthrough: `scripts/logged-shell.md` |
 | `tools/compile.py` | Assembles everyone's findings into report-ready Markdown and checks them for QA problems | Built (accepted at milestone M2, 2026-10-21) |
-| `tools/notebook.py` | A local web page for the checklists, your own files, new files from the templates, the fill-in view and export; later logs and compile | Built in part: checklists, the list of your own files, New file, the fill-in view with autosave, and Export |
+| `tools/notebook.py` | A local web page for the checklists, your own files, new files from the templates, filling them in, the logs and a zip export; later a compile button and a combined Markdown export | Built in part: everything except the compile button and the combined Markdown export |
 | `tools/tests/` | Unit tests: `python3 -m unittest discover tools/tests` | Built |
 
 Design docs and function-by-function walkthroughs are in the public app repo, https://github.com/phil-j-fry/cptc-2026-personal (`tools/`).
@@ -99,7 +99,7 @@ scripts/logged-shell.sh [yourname]
 - **What it writes:** two files per session in `~/cptc-logs/`: `<name>_<UTC time>.log` (the full transcript) and `<name>_<UTC time>.cmds.log` (one line per command: time, exit code, directory, command). Type `exit` to stop; the file paths are printed.
 - **Every new terminal, automatically:** add the zsh auto-start block to `~/.zshrc` (`scripts/logged-shell.md` → "Optional: start logging automatically in every terminal"). It hasn't been tested in zsh yet; try it on your own Kali VM first.
 - **Windows box:** the script is Linux-only. Start a PowerShell transcript in every PowerShell window instead (`scripts/logged-shell.md` → "On the Windows box").
-- **Finding the lines for a finding:** look up the time in `*.cmds.log`, then open the full transcript with `less -R ~/cptc-logs/<file>.log` (`/` and a word to search, `q` to quit), or in the notebook's Logs view once it's built.
+- **Finding the lines for a finding:** look up the time in `*.cmds.log`, then open the full transcript with `less -R ~/cptc-logs/<file>.log` (`/` and a word to search, `q` to quit), or in the notebook's Logs view.
 
 Full walkthrough, line by line: `scripts/logged-shell.md`.
 
@@ -341,7 +341,7 @@ report.md NOT FOUND: report not checked
 
 ## Checklists and your files in your browser: `tools/notebook.py` (built in part)
 
-A page on your own box for the checklists, your own files, new files, filling them in and export, with more to come. Start it from inside `~/cptc-work`:
+A page on your own box for the checklists, your own files, new files, filling them in, the logs and a zip export; a compile button and a combined Markdown export are still to come. Start it from inside `~/cptc-work`:
 
 ```
 python3 tools/notebook.py --name <yourname> [--root ~/cptc-work] [--port 8765]
@@ -359,13 +359,14 @@ Then open the address it prints (`Notebook: http://127.0.0.1:8765` by default). 
 - **Checklists:** lists the `.md` files in `checklists/` and shows each task line (`- [ ] ...`) as a checkbox; every other line is shown as it is in the file. Ticks are saved to `field-notes/<yourname>/checklist-state.json`; the checklist files are only read, never changed. Reworded tasks start unticked, since a tick belongs to the task's exact words.
 - **Your own files:** the left column lists the `.md` files in `findings/` and `field-notes/<yourname>/`, sorted by name so each kind groups by prefix (`F-`, `INJ-`, `IR-`, `NOTE-`, `SU-`). Teammates' copies in `incoming/` are never listed. A folder or file whose link points outside the working copy isn't listed; the column shows `Not listed:` and the reason instead.
 - **New file:** pick a type (Note, Incident report, Status update, Inject response or Finding) and type a title; there is no file name to type. The notebook builds the name and folder (`templates/README.md` → File names): a Finding goes in `findings/`, the others in `field-notes/<yourname>/`, and each starts from its template in `templates/` (a Note starts blank). An incident report and a finding also need a three-digit number. For an incident report the form suggests the next free one (the highest IR number in use plus one). A number already in use (`IR-NNN` or `F-NNN`) gives a warning, but the file is still made. A Finding can start from a `findings-library/` entry instead of the template; picking one puts its title in the Title box. The title must be one line. An existing file is never overwritten: if the name is taken, it says `already exists, choose a different title: <path>`. The new file then shows, selected, in the left column.
-- **Fill-in view:** click a file in the left column. It shows a box for each marker left in the file above the file's whole text, and a status line at the top (`n markers left` or `complete`). A box with fixed choices is a dropdown that starts on `(not chosen)`, so nothing is saved for it until you pick. Your typing saves by itself about 2 seconds after you stop. If the file changed on disk since you opened it (for example you edited it in a text editor), it stops saving, says `changed on disk since you opened it, reload`, and offers Reload; Reload keeps what you typed in a `Your unsaved text` box you can copy from. Only your own files open here.
-- **Export:** the `Export` button makes one zip of your `findings/`, `evidence/`, `tracker/` and `field-notes/<yourname>/`, saved in the working copy as `cptc-export-<yourname>-<timestamp>.zip`. Unzipped inside the report writer's `incoming/<yourname>/`, it gives the same layout an `rsync` pull would. `Include logs` is off by default; turned on, it adds everything in `~/cptc-logs/`, which is large and may contain secrets. A symlink or anything it can't read is left out, and the page lists each one under `Left out of the zip:`. Teammates' copies in `incoming/` are never included.
-- **Light / dark:** follows your system's setting; the button swaps it.
+- **Fill-in:** clicking one of your files opens it with a box for each `[[MARKER]]` still in it and the whole file below. Save puts the box values into the file; the text below saves itself 2 seconds after you stop typing.
+- **Logs:** lists the files in `~/cptc-logs/` (or `$LOGDIR`), newest first, and shows one read-only: cleaned or raw, with a search box, its exact commands from the `.cmds.log`, the `less -R` command to open it in a terminal, and a button that copies it unchanged into `evidence/` under a name you type.
+- **Export:** one zip, `cptc-export-<name>-<timestamp>.zip`, saved in the working copy and laid out so unzipping it inside the report writer's `incoming/<name>/` gives the same mirror an `rsync` pull would (option 3 in the comp repo `README.md` → "Getting files to the report writer"). Logs go in only if "Include logs" is ticked (off by default).
+- **Light / dark:** follows your system's setting; the button swaps it. Plain black and white with one grey; messages and warnings sit in a bordered block.
 
-**Still to come:** a read-only view of `~/cptc-logs/` and a compile button.
+**Still to come:** a compile button and a combined Markdown export.
 
-**Until then:** read logs in a terminal and run `compile.py` from the terminal.
+**Until then:** run `compile.py` from the terminal.
 
 ## Picking up a tool fix mid-event
 
@@ -414,7 +415,7 @@ Checks a teammate runs by hand on their own Kali VM, never in `~/cptc-work`: aft
 
 #### `notebook.py`
 
-Covers what is built today: start-up, the page, checklists, your own files, New file, the fill-in view and export. Items for logs and the compile button are added here as each one is built. The fill-in view, autosave and export are built, but their browser checks are not in this list yet.
+Covers start-up, the page, checklists, your own files and New file. The fill-in view, autosave, logs and export are built, but their items are still to be added here; the compile button's come when it is built.
 
 **Setup:** step 1 of "Example: a practice run" above makes `~/cptc-practice`. In one terminal, from inside it, start the notebook on a spare port so it can't clash with a real one: `python3 tools/notebook.py --name alice --root ~/cptc-practice --port 8766`. Open `http://127.0.0.1:8766` in Firefox on the same box. Run the commands below in a second terminal, also from inside `~/cptc-practice`. Any item that adds a file removes it again at its end. When you're done, stop the notebook with Ctrl+C (it prints `Notebook stopped.`) and clean up with step 5 of the example.
 
@@ -431,7 +432,7 @@ Covers what is built today: start-up, the page, checklists, your own files, New 
 6. **The git clone is refused.** `cd` into your git clone and run `python3 tools/notebook.py --name alice --root . --port 8767`
    You should see: `notebook failed: this looks like the git clone (<your clone's full path> has .git); run on the working copy, e.g. ~/cptc-work`, exit 2. Then `cd ~/cptc-practice`.
 7. **The page.** In Firefox.
-   You should see: a left column with `Light / dark`, your files, `New` and `Checklists`, and nothing else (no Logs, Export or Compile yet). The colours follow your system's light or dark setting; `Light / dark` swaps them.
+   You should see: a left column with `Light / dark`, your files, `New`, `Checklists`, `Logs` and `Export`, and nothing else (no Compile yet). The colours follow your system's light or dark setting; `Light / dark` swaps them.
 8. **Checklists and saved ticks.** `md5sum checklists/*.md > ../checklists.md5`. Click `Checklists`, open one, and tick a task. Reload the page and open the same checklist again.
    You should see: every `- [ ]` line as a checkbox and every other line as it is in the file; the tick is still there after the reload; `cat field-notes/alice/checklist-state.json` shows it as `true`. `md5sum -c ../checklists.md5` prints `OK` for every checklist: the checklists themselves never change. Then `rm ../checklists.md5`.
 9. **A broken tick file is refused, not overwritten.** `cp field-notes/alice/checklist-state.json ../state.bak`, then `echo '{oops' > field-notes/alice/checklist-state.json`. Open the checklist again and click a checkbox.
@@ -458,7 +459,7 @@ Covers what is built today: start-up, the page, checklists, your own files, New 
     `T=$(curl -s http://127.0.0.1:8766/ | sed -n 's/.*name="cptc-token" content="\([^"]*\)".*/\1/p')`, then `curl -s -X POST -H "X-CPTC-Token: $T" -d '{"type": "Note", "title": "a\nb", "nnn": null, "library": null}' http://127.0.0.1:8766/new-file`
     You should see: `not created: the title must be one line, with no line breaks`, and no new file in `field-notes/alice/`.
 18. **The log folder (`$LOGDIR`) is read from the environment and never written.** Stop the notebook (Ctrl+C) and start it again with the log folder pointed into the practice copy: `LOGDIR="$PWD/field-notes/alice" python3 tools/notebook.py --name alice --root ~/cptc-practice --port 8766`. Reload the page, click `New`, pick `Note`, title `log test`, `Create`.
-    You should see: `refused: the log folder is read-only, not writing: field-notes/alice/NOTE-log-test.md`, and no new file. Then stop it and start it once more with `env -u LOGDIR python3 tools/notebook.py --name alice --root ~/cptc-practice --port 8766`: the same Note is now created, because the log folder is back to its default, `~/cptc-logs`, outside the practice copy. Then `rm field-notes/alice/NOTE-log-test.md`. Viewing the logs comes with the log viewer.
+    You should see: `refused: the log folder is read-only, not writing: field-notes/alice/NOTE-log-test.md`, and no new file. Then stop it and start it once more with `env -u LOGDIR python3 tools/notebook.py --name alice --root ~/cptc-practice --port 8766`: the same Note is now created, because the log folder is back to its default, `~/cptc-logs`, outside the practice copy. Then `rm field-notes/alice/NOTE-log-test.md`. The Logs view only reads the log folder.
 
 ### Questions Operations might ask
 
@@ -482,8 +483,8 @@ Answers for what is built today (see "What it does today" above).
 - **"Is it a server on the network?"** No. It listens only on `127.0.0.1`, so only the box it runs on can open it. The address is written into the code, and there is no option to change it. It also refuses any request whose `Host` isn't exactly `127.0.0.1:<port>`, so a website can't reach it by pointing its own name at `127.0.0.1` (DNS rebinding). It makes no outbound connections, and the page loads nothing from the internet: its styles and script are inside the page.
 - **"Is there a login?"** No. It's a single-person tool on your own box, like a text editor. Each run makes a new random token and puts it in its own page; every request that changes something must carry it. That stops other websites open in the same browser (including a client app we are testing) from making changes, because they can't read our page to learn the token. It isn't a password: anyone who can use the box can open the page.
 - **"Can a hostile file or log run code in the page?"** No. File content is put into the page as plain text only, never as HTML, so a `<script>` in a file shows as text. Every response except the one app page is plain text or JSON, with headers that stop the browser from treating it as a web page or showing it inside another site.
-- **"What does it store, and where?"** Only plain files in the working copy (`~/cptc-work` by default): the `.md` files you create with New (in `findings/` or `field-notes/<yourname>/`) and your checklist ticks in `field-notes/<yourname>/checklist-state.json`. The fill-in view also saves your own `.md` files there, and only those. It never changes the checklists, the templates or the findings library, and it never overwrites an existing file when making a new one.
-- **"Can logs with secrets leak through it?"** Our terminal logs (`~/cptc-logs/`, or `$LOGDIR`) can hold secrets: passwords, hashes and tokens typed or printed during the test. Today the notebook doesn't show logs at all: the log viewer isn't built. It never writes into the log folder. When the viewer is built it will show logs read-only, only on `127.0.0.1` with no outbound connections, and the planned export leaves logs out unless a box is ticked (off by default). Redact secrets before any log text goes into a finding or the report.
+- **"What does it store, and where?"** Only plain files in the working copy (`~/cptc-work` by default): the `.md` files you create with New (in `findings/` or `field-notes/<yourname>/`) and your checklist ticks in `field-notes/<yourname>/checklist-state.json`. It also saves your own `.md` files there from the fill-in view, the export zip in the working copy's top folder, and a log you copy into `evidence/`. It never changes the checklists, the templates or the findings library, and it never overwrites an existing file when making a new one.
+- **"Can logs with secrets leak through it?"** Our terminal logs (`~/cptc-logs/`, or `$LOGDIR`) can hold secrets: passwords, hashes and tokens typed or printed during the test. The Logs view shows them read-only, only on `127.0.0.1` with no outbound connections, and the notebook never writes into the log folder. Export leaves logs out unless "Include logs" is ticked (off by default), and copying a log into `evidence/` copies it unchanged, secrets included. Redact secrets before any log text goes into a finding or the report.
 - **"Does it run commands?"** No. Nothing in it starts another program, and a test reads its source to check that it doesn't import subprocess and never uses os.system, os.popen, exec or eval.
 - **"Can it change a teammate's files?"** No. Teammates' copies in `incoming/<name>/` are never listed, and every write refuses a path inside `incoming/` (rule R18) or the log folder. It also refuses a folder or file whose link points outside the working copy, and it refuses to start in the git clone.
-- **"What's built, and what isn't?"** Built: the checklists, the list of your own files, New file, the fill-in view with autosave, and Export (one zip). Not built yet: the log viewer, the compile button and the combined Markdown export. Until they are, use `compile.py` from the terminal, as "Until then" above says.
+- **"What's built, and what isn't?"** Built: the checklists, the list of your own files, New file, the fill-in view with autosave, the log viewer and export (one zip). Not built yet: the compile button and the combined Markdown export. Until then, use `compile.py` from the terminal, as "Until then" above says.

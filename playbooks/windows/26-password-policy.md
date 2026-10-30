@@ -3,8 +3,8 @@
 # 26. Misconfigured Password Policy
 
 - **Phase:** Low credentials. A null session sometimes shows the policy with no credentials (`checklists/10-ad-internal.md` step 2).
-- **Risk:** 🟢 Safe *(proposed)*: reading the policy
-- **Tier:** Must know *(proposed)*
+- **Risk:** 🟢 Safe: reading the policy
+- **Tier:** Must know
 - **Finding:** library L06 (`weak-password-policy`)
 - **Runs on:** any Windows host; the domain policy lives on the domain controllers
 - **Tools:** netexec; the 2024 Runlist also mentions exporting LDAP to HTML files (ldapdomaindump, as in #1)

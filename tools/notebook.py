@@ -17,6 +17,7 @@ import json
 import os
 import re
 import secrets
+import shlex
 import shutil
 import stat
 import sys
@@ -1779,11 +1780,20 @@ def add_zip_file(archive, member, path, skipped):
         else:
             skipped.append("not exported: can't read: " + member + " (" + str(error) + ")")
         return
+    # Checked on the open descriptor, before fdopen(), which raises its own
+    # error for a folder and would leave the descriptor open (DECISIONS
+    # 2026-10-30 Chunk N7 C-N6-01). Each early return closes it first.
+    try:
+        info = os.fstat(handle)
+    except OSError as error:
+        os.close(handle)
+        skipped.append("not exported: can't read: " + member + " (" + str(error) + ")")
+        return
+    if not stat.S_ISREG(info.st_mode):
+        os.close(handle)
+        skipped.append("not exported: not a regular file: " + member)
+        return
     with os.fdopen(handle, "rb") as source:
-        info = os.fstat(source.fileno())
-        if not stat.S_ISREG(info.st_mode):
-            skipped.append("not exported: not a regular file: " + member)
-            return
         entry = zipfile.ZipInfo(member, date_time=zip_time(info.st_mtime))
         entry.compress_type = zipfile.ZIP_DEFLATED
         # Copied in chunks, so a large log is never read into memory whole.
@@ -1894,13 +1904,397 @@ def save_export(handler):
     send_json(handler, 200, {"path": str(path), "skipped": skipped})
 
 
+# Logs: the terminal transcripts in $LOGDIR are cleaned for display only
+# (BUILD-SPEC Logs); the log itself is never changed.
+
+# A run of carriage returns ending in a line feed: \r\n, or \r\r\n from
+# Windows output (evil-winrm, HTTP headers).
+CR_RUN_LF_RE = re.compile(r"\r+\n")
+# The escape codes the spec strips, in its order: CSI (colours, cursor
+# moves, modes), OSC (window titles, links) ended by BEL or ESC backslash,
+# a character-set choice such as ESC ( B, and keypad mode ESC = / ESC >.
+ESCAPE_RES = (
+    re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]"),
+    re.compile(r"\x1b\][^\x07\x1b]*(\x07|\x1b\\)"),
+    re.compile(r"\x1b[()][A-Za-z0-9]"),
+    re.compile(r"\x1b[=>]"),
+)
+
+
+def last_redraw(line):
+    """Return the text after a line's last carriage return (all of it if there is none)."""
+    # A progress bar redraws itself with \r; the terminal showed only the
+    # last drawing, so that is all the page shows.
+    return line.split("\r")[-1]
+
+
+def apply_backspaces(line):
+    """Return one line with each backspace deleting the character before it."""
+    kept = []
+    for char in line:
+        if char != "\x08":
+            kept.append(char)
+        elif kept:
+            kept.pop()
+        # A backspace with nothing before it on the line does nothing: it
+        # never deletes the line break (DECISIONS 2026-10-30 Chunk N7 G1).
+    return "".join(kept)
+
+
+def clean_log_text(text):
+    """Return a transcript's text as the page shows it, in the spec's four steps."""
+    # 1. CR runs before a line feed become one \n first, or step 2 would
+    #    keep the empty text after the last \r and blank every Windows line.
+    text = CR_RUN_LF_RE.sub("\n", text)
+    # 2. Split on \n only (like grep -n), so form feeds and Unicode line
+    #    separators stay part of their line.
+    text = "\n".join(last_redraw(line) for line in text.split("\n"))
+    # 3. Codes go before backspaces, so a backspace never eats part of a code.
+    for pattern in ESCAPE_RES:
+        text = pattern.sub("", text)
+    # 4. Line by line, so a backspace stops at the start of its line (G1).
+    return "\n".join(apply_backspaces(line) for line in text.split("\n"))
+
+
+# logged-shell.sh saves each session as <name>_<time>.log plus this command
+# index beside it.
+COMMANDS_SUFFIX = ".cmds.log"
+
+
+def list_logs(logdir):
+    """Return (logs, refused) for the Logs view.
+
+    logs: the names of the regular files directly in the log folder, newest
+    modified first (the same time: by name). A command index is left out:
+    it is shown with its transcript (DECISIONS 2026-10-30 Chunk N7 G2).
+    refused: one message per link pointing outside the log folder, or name
+    the page couldn't send back.
+    A missing log folder lists nothing and is not created.
+    """
+    try:
+        names = os.listdir(str(logdir))
+    except FileNotFoundError:
+        # No logged shell has been started yet.
+        return [], []
+    found = []
+    refused = []
+    for name in names:
+        if name.endswith(COMMANDS_SUFFIX):
+            continue
+        try:
+            name.encode("utf-8")
+        except UnicodeEncodeError:
+            # A name with bytes that aren't UTF-8 (possible on Linux): the
+            # page couldn't put it in a URL to open it.
+            refused.append("name isn't UTF-8: " + repr(name))
+            continue
+        try:
+            path = readable_log_path(logdir, name)
+            info = os.stat(str(path))
+        except compile.RootError as error:
+            refused.append(str(error))
+            continue
+        except OSError:
+            # Gone since the folder was listed, or a broken link.
+            continue
+        # Folders, FIFOs and devices aren't logs; a FIFO is never opened.
+        if stat.S_ISREG(info.st_mode):
+            found.append((-info.st_mtime, name))
+    found.sort()
+    refused.sort()
+    return [name for _, name in found], refused
+
+
+# The most of one log the page gets (DECISIONS 2026-10-30 Chunk N7 G4): an
+# all-day transcript can be gigabytes, too much for the browser to show.
+MAX_LOG_BYTES = 5 * 1024 * 1024
+
+
+def open_regular_file(path):
+    """Open a resolved path to read; return (descriptor, its os.stat_result).
+
+    Raises RootError if it is not a regular file, and OSError if it can't
+    be opened. The caller closes the descriptor.
+    """
+    # O_NONBLOCK: a FIFO can't make open() wait forever, and nothing is
+    # ever read from it. O_NOFOLLOW: path is already resolved, so a link
+    # here is one swapped in since the check; it is refused, not followed.
+    handle = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    # Checked on the open descriptor, before fdopen(), which raises its own
+    # error for a folder and would leave the descriptor open. Closed on
+    # every way out of here that doesn't hand it back.
+    try:
+        info = os.fstat(handle)
+    except OSError:
+        os.close(handle)
+        raise
+    if not stat.S_ISREG(info.st_mode):
+        os.close(handle)
+        raise compile.RootError("not a regular file: " + str(path))
+    return handle, info
+
+
+def read_log_tail(path):
+    """Return (text, cut) for a regular file: its last MAX_LOG_BYTES, decoded.
+
+    cut is the number of bytes left out at the start. Raises RootError if
+    path is not a regular file, and OSError if it can't be read.
+    """
+    handle, info = open_regular_file(path)
+    with os.fdopen(handle, "rb") as source:
+        # The size now is the snapshot (G5): text a live shell adds while
+        # this reads is left for the next open.
+        start = max(0, info.st_size - MAX_LOG_BYTES)
+        source.seek(start)
+        data = source.read(info.st_size - start)
+    if start > 0:
+        # Start after a line break, so the first line isn't half a line (or
+        # half a character or escape code).
+        first_line_end = data.find(b"\n") + 1
+        data = data[first_line_end:]
+        start += first_line_end
+    # Decoding the bytes ourselves does no newline translation, which is
+    # what the spec's newline="" is for: a lone \r reaches the cleaner.
+    # Bytes that aren't UTF-8 show as U+FFFD (G3); the log is not changed.
+    return data.decode("utf-8", errors="replace"), start
+
+
+def commands_name(path):
+    """Return the command index's name for a transcript path, or None."""
+    if not path.endswith(".log") or path.endswith(COMMANDS_SUFFIX):
+        return None
+    return path[:-len(".log")] + COMMANDS_SUFFIX
+
+
+def terminal_command(full_path):
+    """Return the command that opens a log in a terminal: less -R <path>, quoted for the shell.
+
+    Only text for the user to copy (BUILD-SPEC Logs): the notebook never
+    opens a terminal or runs it (Constraint 3).
+    """
+    # shlex.quote() adds the quotes a path with spaces or quotes needs, so
+    # no more quotes go around it.
+    return "less -R " + shlex.quote(str(full_path))
+
+
+def read_log(logdir, path):
+    """Return what the Logs view shows for one log, as a dict.
+
+    raw: the transcript as it is; clean: clean_log_text() of it; commands:
+    the matching command index's text, or None; notes: plain lines the page
+    shows (left-out text, a missing command index); command: terminal_command()
+    for the log's full path, as checked. Never writes anything.
+    Raises RootError for a refused path and OSError if it can't be read.
+    """
+    full_path = readable_log_path(logdir, path)
+    raw, cut = read_log_tail(full_path)
+    notes = []
+    if cut:
+        notes.append("Showing only the end of this log (at most 5 MB): the first "
+                     + str(cut) + " bytes are left out. "
+                     "To see the whole log, use the terminal command.")
+    commands = None
+    index = commands_name(path)
+    if index is None:
+        notes.append("No command index: this is a command index itself, or its name doesn't end in .log.")
+    else:
+        try:
+            commands, commands_cut = read_log_tail(readable_log_path(logdir, index))
+        except FileNotFoundError:
+            notes.append("No command index: " + index + " isn't in the log folder.")
+        except (compile.RootError, OSError) as error:
+            # The transcript is still shown.
+            notes.append("Command index not shown: " + str(error))
+        else:
+            if commands_cut:
+                notes.append("Showing only the end of the command index (at most 5 MB): "
+                             "the first " + str(commands_cut) + " bytes are left out.")
+    return {"path": path, "raw": raw, "clean": clean_log_text(raw),
+            "commands": commands, "notes": notes, "command": terminal_command(full_path)}
+
+
+def send_log_list(handler):
+    """GET /logs: the log names, newest first, with any refused ones, as JSON."""
+    try:
+        logs, refused = list_logs(handler.server.settings["logdir"])
+    except OSError as error:
+        # e.g. $LOGDIR is a file, or can't be read.
+        send_text(handler, 500, "can't list the log folder: " + str(error))
+        return
+    send_json(handler, 200, {"logs": logs, "refused": refused})
+
+
+def send_log(handler):
+    """GET /log?path=<name>: one log's raw and clean text and commands, as JSON."""
+    query = parse_qs(urlsplit(handler.path).query, keep_blank_values=True)
+    if set(query) != {"path"} or len(query["path"]) != 1 or query["path"][0] == "":
+        send_text(handler, 400, "give one log: ?path=<a name from the log list>")
+        return
+    path = query["path"][0]
+    try:
+        log = read_log(handler.server.settings["logdir"], path)
+    except compile.RootError as error:
+        send_text(handler, 403, "refused: " + str(error))
+        return
+    except FileNotFoundError:
+        send_text(handler, 404, "no such log: " + path)
+        return
+    except OSError as error:
+        send_text(handler, 500, "can't read the log: " + str(error))
+        return
+    send_json(handler, 200, log)
+
+
+# An evidence file name: letters, digits, ".", "_" and "-" only (BUILD-SPEC
+# Logs), so it can't name a folder or leave evidence/. Used with fullmatch().
+EVIDENCE_NAME_RE = re.compile(r"[A-Za-z0-9._-]+")
+REDACT_WARNING = ("The copy is the whole log, unchanged. Logs can hold secrets such as "
+                  "passwords and keys: redact them before any of it goes into a report.")
+# Read in pieces of this size, so a big log is never in memory whole.
+COPY_CHUNK_BYTES = 1024 * 1024
+
+
+def check_evidence_name(name):
+    """Return name if it can be an evidence file name; else raise ValueError."""
+    # "." and ".." pass the pattern but are folders, not file names.
+    if EVIDENCE_NAME_RE.fullmatch(name) is None or name in (".", ".."):
+        raise ValueError("an evidence name may use only letters, digits, '.', '_' and '-' "
+                         "(e.g. F-001-nmap.log): " + repr(name))
+    return name
+
+
+def evidence_folder(root, logdir):
+    """Return the root's evidence/ folder, made if missing; raise RootError if it can't be used.
+
+    DECISIONS 2026-10-30 Chunk N7 G7: refused if it is a symlink, even one
+    inside the root, like the N4 D2 rule for saves: the copy must land in
+    evidence/ itself, where the team looks for it.
+    """
+    folder = Path(root) / "evidence"
+    if os.path.islink(str(folder)):
+        raise compile.RootError("evidence is a link, not copying through it")
+    # The same check as every other write: inside the root, not incoming/
+    # or the log folder (e.g. $LOGDIR set to evidence/).
+    writable_path(root, logdir, "evidence")
+    try:
+        folder.mkdir(exist_ok=True)
+    except FileExistsError:
+        # Something that isn't a folder is already named evidence.
+        raise compile.RootError("evidence is not a folder, not copying into it")
+    return folder
+
+
+def copy_bytes(handle, target, size):
+    """Copy size bytes (or up to the end, if the file got shorter) from handle to target."""
+    left = size
+    while left > 0:
+        chunk = os.read(handle, min(left, COPY_CHUNK_BYTES))
+        if not chunk:
+            break
+        target.write(chunk)
+        left -= len(chunk)
+
+
+def copy_log_to_evidence(root, logdir, path, name):
+    """Copy a log, byte for byte, to evidence/<name>; return that path, root-relative.
+
+    Raises ValueError for a bad name, RootError for a refused path, a
+    non-regular log or a linked evidence/, FileExistsError if evidence/<name>
+    exists (never overwritten), and OSError if the copy can't be made. A
+    failed copy leaves nothing behind but a newly made evidence/ folder.
+    """
+    check_evidence_name(name)
+    relative = "evidence/" + name
+    handle, info = open_regular_file(readable_log_path(logdir, path))
+    with os.fdopen(handle, "rb") as source:
+        folder = evidence_folder(root, logdir)
+        target = folder / name
+        taken = relative + " already exists; not overwriting it, pick another name"
+        # lexists: a link there, even a broken one, counts as taken too.
+        # Checked first, so a big log isn't copied only to be thrown away.
+        if os.path.lexists(str(target)):
+            raise FileExistsError(taken)
+        # Written to a new temp file beside it, then given its name, as the
+        # export does, so a half-copied file never carries the name.
+        temp_handle, temp_name = tempfile.mkstemp(dir=str(folder), prefix=".cptc-evidence-", suffix=".part")
+        try:
+            with os.fdopen(temp_handle, "wb") as temp:
+                # The size when it was opened (DECISIONS 2026-10-30 Chunk N7
+                # G8): text a live shell adds meanwhile is left out.
+                copy_bytes(source.fileno(), temp, info.st_size)
+            # os.link() never replaces a file, unlike a rename: one that
+            # appeared under that name since the check above is kept.
+            os.link(temp_name, str(target))
+        except FileExistsError:
+            os.unlink(temp_name)
+            raise FileExistsError(taken)
+        except BaseException:
+            # Our own temp file only.
+            os.unlink(temp_name)
+            raise
+        # The copy has its name now; the temp name was a second name for it.
+        os.unlink(temp_name)
+    return relative
+
+
+MAX_EVIDENCE_BYTES = 4096
+EVIDENCE_FIELDS = {"path", "name"}
+
+
+def read_evidence_request(handler):
+    """Return (log path, evidence name) from a copy POST's JSON body, or None after sending a 400."""
+    length = handler.headers.get("Content-Length", "")
+    if not (length.isascii() and length.isdigit()) or int(length) > MAX_EVIDENCE_BYTES:
+        send_text(handler, 400, "send the copy request as JSON, at most " + str(MAX_EVIDENCE_BYTES) + " bytes")
+        return None
+    try:
+        request = json.loads(handler.rfile.read(int(length)).decode("utf-8"))
+    except ValueError:
+        request = None
+    # Exactly these two fields, both text, so nothing is copied by a guess.
+    if (not isinstance(request, dict) or set(request) != EVIDENCE_FIELDS
+            or not all(isinstance(request[field], str) for field in EVIDENCE_FIELDS)):
+        send_text(handler, 400, 'send {"path": <log name>, "name": <evidence file name>}')
+        return None
+    return request["path"], request["name"]
+
+
+def save_evidence(handler):
+    """POST /evidence: copy a log unchanged into evidence/; answer with its path and the redact warning."""
+    request = read_evidence_request(handler)
+    if request is None:
+        return
+    path, name = request
+    settings = handler.server.settings
+    try:
+        copied = copy_log_to_evidence(settings["root"], settings["logdir"], path, name)
+    except ValueError as error:
+        send_text(handler, 400, "not copied: " + str(error))
+        return
+    except compile.RootError as error:
+        send_text(handler, 403, "refused: " + str(error))
+        return
+    except FileExistsError as error:
+        # Before OSError, which it is a kind of: the existing file is kept.
+        send_text(handler, 409, "not copied: " + str(error))
+        return
+    except FileNotFoundError:
+        send_text(handler, 404, "no such log: " + path)
+        return
+    except OSError as error:
+        send_text(handler, 500, "not copied: " + str(error))
+        return
+    send_json(handler, 200, {"path": copied, "warning": REDACT_WARNING})
+
+
 # Where send_page() puts this run's token in the page.
 TOKEN_SLOT = "CPTC_TOKEN_SLOT"
 
 # The app page: a left column (nav) and a main pane. Inline CSS and JS only,
 # no outside files (Constraint 1). Black on white, or white on black when the
-# system is in dark mode; the button swaps them by hand. No styling beyond
-# spacing. The script builds everything with textContent, never innerHTML, so
+# system is in dark mode; the button swaps them by hand. Plain styling only:
+# one grey, spacing, borders and one button style, so messages stand out
+# (DECISIONS 2026-10-30 LOOK-01). The script builds everything with textContent, never innerHTML, so
 # text from a file (even "<script>") only ever shows as text.
 APP_PAGE = """<!doctype html>
 <html lang="en">
@@ -1909,27 +2303,66 @@ APP_PAGE = """<!doctype html>
 <meta name="cptc-token" content="CPTC_TOKEN_SLOT">
 <title>CPTC notebook</title>
 <style>
-:root { --text: black; --background: white; }
+/* Black and white (a soft dark grey in dark mode) plus one grey, for borders
+   and disabled buttons (DECISIONS 2026-10-30 LOOK-01), and a red, a green and
+   an amber for the left bar of error, OK and warning messages only (Chunk N7
+   review F2). Each colour is readable on its background. */
+:root { --text: black; --background: white; --grey: #707070; --error: #c62828; --ok: #2e7d32; --warning: #b26a00; }
+/* Dark is a soft dark grey, not pure black (DECISIONS 2026-10-30 Chunk N7 review F1). */
 @media (prefers-color-scheme: dark) {
-  :root { --text: white; --background: black; }
+  :root { --text: #e6e6e6; --background: #1e1e1e; --grey: #8f8f8f; --error: #ef5350; --ok: #66bb6a; --warning: #ffb74d; }
 }
 /* Set by the toggle button; these win over the system setting above. */
-:root[data-theme="light"] { --text: black; --background: white; }
-:root[data-theme="dark"] { --text: white; --background: black; }
-body { margin: 0; color: var(--text); background: var(--background); font-family: sans-serif; }
-.columns { display: flex; gap: 2rem; padding: 1rem; }
-nav { width: 15rem; flex-shrink: 0; }
-main { flex-grow: 1; }
-nav button { display: block; margin-bottom: 0.5rem; }
-label input { margin-right: 0.5rem; }
+:root[data-theme="light"] { --text: black; --background: white; --grey: #707070; --error: #c62828; --ok: #2e7d32; --warning: #b26a00; }
+:root[data-theme="dark"] { --text: #e6e6e6; --background: #1e1e1e; --grey: #8f8f8f; --error: #ef5350; --ok: #66bb6a; --warning: #ffb74d; }
+body { margin: 0; color: var(--text); background: var(--background); font-family: sans-serif;
+       line-height: 1.4; }
+.columns { display: flex; gap: 2rem; padding: 1.5rem; max-width: 90rem; }
+/* A line between the left column and the main pane. */
+nav { width: 15rem; flex-shrink: 0; padding-right: 1.5rem; border-right: 1px solid var(--grey); }
+/* min-width 0 lets long log lines wrap instead of widening the page. */
+main { flex-grow: 1; min-width: 0; max-width: 65rem; }
+h2 { margin: 0 0 1rem; font-size: 1.4rem; overflow-wrap: anywhere; }
+h3 { margin: 1.5rem 0 0.5rem; font-size: 1.1rem; }
+p { margin: 0.5rem 0; }
+/* One button style; the page's own colours, not the system's grey ones. */
+button { font: inherit; color: var(--text); background: var(--background);
+         border: 1px solid var(--text); border-radius: 3px; padding: 0.25rem 0.75rem; cursor: pointer; }
+button:disabled { color: var(--grey); border-color: var(--grey); cursor: default; }
+/* A clear outline on whatever has the keyboard focus. */
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+input[type="text"], select, textarea { font: inherit; color: var(--text); background: var(--background);
+         border: 1px solid var(--grey); border-radius: 3px; padding: 0.25rem 0.4rem; }
+/* Each box sits under its label, so the boxes line up. */
+label > input[type="text"], label > select, label > textarea { display: block; margin-top: 0.25rem; }
+input[type="text"] { width: 100%; max-width: 30rem; box-sizing: border-box; }
+textarea { width: 100%; box-sizing: border-box; font-family: monospace; }
+input[type="checkbox"] { margin-right: 0.5rem; }
+nav button { display: block; width: 100%; margin-bottom: 0.5rem; text-align: left; }
 /* One <pre> per checklist line; an empty line still takes up a line. */
-pre { margin: 0; min-height: 1.2em; white-space: pre-wrap; }
+pre { margin: 0; min-height: 1.2em; white-space: pre-wrap; overflow-wrap: anywhere; font-family: monospace; }
 /* The file list: full paths wrap rather than widen the column. */
+#file-list { margin: 1rem 0; padding: 0.75rem 0; border-top: 1px solid var(--grey);
+             border-bottom: 1px solid var(--grey); }
 #file-list div { margin-bottom: 0.25rem; overflow-wrap: anywhere; }
 #file-list button { margin-bottom: 0; max-width: 100%; overflow-wrap: anywhere; }
 /* The file just created, so it can be found in the list. */
 #file-list .selected { font-weight: bold; }
-form div { margin-bottom: 0.5rem; }
+form div, main > div { margin-bottom: 0.5rem; }
+/* A NOTE in the fill-in view: bold, not the browser's yellow. */
+mark { background: none; color: inherit; font-weight: bold; }
+/* Status, warning and error lines: a block of their own, so they can't be
+   missed. Hidden while empty. */
+.message { margin: 0.75rem 0; padding: 0.5rem 0.75rem; border: 1px solid var(--grey);
+           border-left: 4px solid var(--text); }
+.message:empty { display: none; }
+/* Only the bar is coloured; the words ("refused:", "Saved") say it too. */
+.message.error { border-left-color: var(--error); }
+.message.ok { border-left-color: var(--ok); }
+.message.warning { border-left-color: var(--warning); }
+.message p, .message pre { margin: 0.25rem 0; }
+/* A log's text and its commands: framed, and scrolling inside the frame. */
+.log-text { padding: 0.5rem; border: 1px solid var(--grey); max-height: 70vh; overflow: auto; }
 </style>
 </head>
 <body>
@@ -1939,6 +2372,7 @@ form div { margin-bottom: 0.5rem; }
 <div id="file-list"></div>
 <button type="button" id="new-button">New</button>
 <button type="button" id="checklists-button">Checklists</button>
+<button type="button" id="logs-button">Logs</button>
 <button type="button" id="export-button">Export</button>
 </nav>
 <main id="main"></main>
@@ -1965,10 +2399,25 @@ function element(tag, text) {
   return made;
 }
 
+/* Mark a message block as an error, as done, or as a warning or note
+   (DECISIONS 2026-10-30 Chunk N7 review F2): only its left bar changes colour.
+   A status such as "3 markers left" stays plain. */
+function markError(block) {
+  block.className = "message error";
+}
+
+function markOk(block) {
+  block.className = "message ok";
+}
+
+function markWarning(block) {
+  block.className = "message warning";
+}
+
 /* Empty the main pane and show one message, e.g. the server's error text. */
 function showMessage(text) {
   main.textContent = "";
-  main.appendChild(element("p", text));
+  markError(main.appendChild(element("p", text)));
 }
 
 /* GET a JSON route and pass its data to show(); an error shows the server's text. */
@@ -2002,6 +2451,8 @@ function showChecklist(data) {
   main.appendChild(element("h2", data.path));
   /* Saving problems show here; empty when all is well. */
   var status = main.appendChild(element("p", data.state_error || ""));
+  /* It only ever holds a problem: a state error, or a tick not saved. */
+  markError(status);
   data.records.forEach(function (record) {
     if (record.type === "text") {
       main.appendChild(element("pre", record.text));
@@ -2071,7 +2522,7 @@ function showFiles(data, selected) {
   });
   /* A link pointing outside isn't listed, but its reason always shows. */
   data.refused.forEach(function (reason) {
-    fileList.appendChild(element("p", "Not listed: " + reason));
+    markError(fileList.appendChild(element("p", "Not listed: " + reason)));
   });
 }
 
@@ -2082,12 +2533,16 @@ function loadFiles(selected) {
         showFiles(data, selected);
       });
     }
-    return response.text().then(function (text) {
-      fileList.textContent = text;
-    });
+    return response.text().then(showFileListError);
   }).catch(function (error) {
-    fileList.textContent = "The notebook isn't answering: " + error;
+    showFileListError("The notebook isn't answering: " + error);
   });
+}
+
+/* Why the file list couldn't load, in place of the list. */
+function showFileListError(text) {
+  fileList.textContent = "";
+  markError(fileList.appendChild(element("p", text)));
 }
 
 /* A labelled control in its own row; returns the row, to hide or add to. */
@@ -2118,8 +2573,10 @@ function showNewForm(data) {
   nnn.type = "text";
   var nnnRow = addField(form, "Number (NNN)", nnn);
   var nnnNote = nnnRow.appendChild(element("p", ""));
+  /* Only ever "no number left" or "couldn't get one". */
+  markError(nnnNote);
   data.ir_refused.forEach(function (reason) {
-    nnnRow.appendChild(element("p", "Not counted for the IR number: " + reason));
+    markError(nnnRow.appendChild(element("p", "Not counted for the IR number: " + reason)));
   });
   var library = element("select");
   var blank = library.appendChild(element("option", "templates/finding.md (no library entry)"));
@@ -2130,11 +2587,12 @@ function showNewForm(data) {
   });
   var libraryRow = addField(form, "Start from", library);
   data.library_refused.forEach(function (reason) {
-    libraryRow.appendChild(element("p", "Not offered: " + reason));
+    markError(libraryRow.appendChild(element("p", "Not offered: " + reason)));
   });
   var create = form.appendChild(element("div")).appendChild(element("button", "Create"));
   create.type = "button";
   var status = form.appendChild(element("div"));
+  status.className = "message";
 
   function chosenType() {
     return data.types[typeList.selectedIndex];
@@ -2197,6 +2655,7 @@ function showNewForm(data) {
     function notCreated(text) {
       /* The form keeps its values, so the user can correct them. */
       create.disabled = false;
+      markError(status);
       status.appendChild(element("p", text));
     }
     fetch("/new-file", {
@@ -2209,6 +2668,7 @@ function showNewForm(data) {
       }
       return response.json().then(function (result) {
         create.disabled = false;
+        markOk(status);
         status.appendChild(element("p", "Created " + result.path));
         result.warnings.forEach(function (warning) {
           status.appendChild(element("p", "Warning: " + warning));
@@ -2216,6 +2676,10 @@ function showNewForm(data) {
         result.refused.forEach(function (reason) {
           status.appendChild(element("p", "Not checked for duplicates: " + reason));
         });
+        /* Made, but with something to read: amber, not green (LOOK-02). */
+        if (result.warnings.length > 0 || result.refused.length > 0) {
+          markWarning(status);
+        }
         loadFiles(result.path);
         refreshSuggestion();
       });
@@ -2241,12 +2705,13 @@ function showExport() {
   label.appendChild(logs);
   label.appendChild(element("span", "Include logs"));
   main.appendChild(element("div")).appendChild(label);
-  main.appendChild(element("p", "Logs are large and may contain secrets such as " +
-    "passwords and keys. Only include them when your team needs them."));
+  markWarning(main.appendChild(element("p", "Logs are large and may contain secrets such as " +
+    "passwords and keys. Only include them when your team needs them.")));
   var make = element("button", "Make the zip");
   make.type = "button";
   main.appendChild(element("div")).appendChild(make);
   var status = main.appendChild(element("div"));
+  status.className = "message";
 
   make.addEventListener("click", function () {
     /* Locked until the answer, so one click makes at most one zip. */
@@ -2254,6 +2719,7 @@ function showExport() {
     status.textContent = "";
     function notMade(text) {
       make.disabled = false;
+      markError(status);
       status.appendChild(element("p", text));
     }
     fetch("/export", {
@@ -2266,9 +2732,12 @@ function showExport() {
       }
       return response.json().then(function (result) {
         make.disabled = false;
+        markOk(status);
         status.appendChild(element("p", "Saved " + result.path));
         /* The zip is still made without them (DECISIONS 2026-10-30 Chunk N6 E1). */
         if (result.skipped.length > 0) {
+          /* Made, but not with everything: amber, not green (LOOK-02). */
+          markWarning(status);
           status.appendChild(element("p", "Left out of the zip:"));
         }
         result.skipped.forEach(function (line) {
@@ -2277,6 +2746,167 @@ function showExport() {
       });
     }).catch(function (error) {
       notMade("Not exported: " + error);
+    });
+  });
+}
+
+/* The Logs view: the log folder's files, newest first (GET /logs). */
+function showLogList(data) {
+  main.textContent = "";
+  main.appendChild(element("h2", "Logs"));
+  if (data.logs.length === 0) {
+    main.appendChild(element("p", "No logs in the log folder."));
+  }
+  data.logs.forEach(function (name) {
+    var button = element("button", name);
+    button.type = "button";
+    button.addEventListener("click", function () {
+      getJson("/log?path=" + encodeURIComponent(name), showLog);
+    });
+    main.appendChild(element("div")).appendChild(button);
+  });
+  /* A link pointing outside isn't listed, but its reason always shows. */
+  data.refused.forEach(function (reason) {
+    markError(main.appendChild(element("p", "Not listed: " + reason)));
+  });
+}
+
+/* The lines of text that contain wanted, ignoring case; all of it if
+   wanted is empty (DECISIONS 2026-10-30 Chunk N7 G6). */
+function matchingLines(text, wanted) {
+  if (wanted === "") {
+    return text;
+  }
+  var needle = wanted.toLowerCase();
+  return text.split("\\n").filter(function (line) {
+    return line.toLowerCase().indexOf(needle) !== -1;
+  }).join("\\n");
+}
+
+/* One log (GET /log): its cleaned or raw text, searchable, with the exact
+   commands from its .cmds.log below. Everything from the log goes in as
+   textContent, so "<script>" in a log only ever shows as text. */
+function showLog(data) {
+  main.textContent = "";
+  main.appendChild(element("h2", data.path));
+  showTerminalCommand(data.command);
+  markWarning(main.appendChild(element("p", "Shown cleaned: colour codes, carriage returns and " +
+    "backspaces are taken out. Output that redraws the screen (progress bars, spinners, " +
+    "full-screen tools such as vim) may still look messy here. For those, open the log " +
+    "in a terminal with less -R and its full path, as checklists/40-evidence-and-logging.md " +
+    "says (type / and a word to search, q to quit).")));
+  /* e.g. only the last 5 MB is shown (G4), or there is no command index. */
+  var notes = main.appendChild(element("div"));
+  markWarning(notes);
+  data.notes.forEach(function (note) {
+    notes.appendChild(element("p", note));
+  });
+  var search = element("input");
+  search.type = "text";
+  addField(main, "Show only lines containing", search);
+  var raw = element("input");
+  raw.type = "checkbox";
+  var rawLabel = element("label");
+  rawLabel.appendChild(raw);
+  rawLabel.appendChild(element("span", "Raw (the log as saved, control codes included)"));
+  main.appendChild(element("div")).appendChild(rawLabel);
+  var found = main.appendChild(element("p", ""));
+  markWarning(found);
+  var transcript = main.appendChild(element("pre", ""));
+  transcript.className = "log-text";
+
+  /* Search runs on whichever text is shown, clean or raw (G6). */
+  function redraw() {
+    var shown = matchingLines(raw.checked ? data.raw : data.clean, search.value);
+    transcript.textContent = shown;
+    found.textContent = search.value === "" ? "" :
+      (shown === "" ? "No lines contain that text." : "Only lines containing that text are shown.");
+  }
+  search.addEventListener("input", redraw);
+  raw.addEventListener("change", redraw);
+  redraw();
+
+  if (data.commands !== null) {
+    main.appendChild(element("h3", "Commands (exact, from the .cmds.log)"));
+    main.appendChild(element("pre", data.commands)).className = "log-text";
+  }
+  showEvidenceCopy(data.path);
+}
+
+/* The command that opens this log in a terminal, as selectable text, and a
+   button that puts it on the clipboard. The page never runs it. */
+function showTerminalCommand(command) {
+  main.appendChild(element("p", "To open this log in a terminal, paste this command there:"));
+  main.appendChild(element("pre", command));
+  var copy = element("button", "Copy terminal command");
+  copy.type = "button";
+  main.appendChild(element("div")).appendChild(copy);
+  var copied = main.appendChild(element("p", ""));
+  copied.className = "message";
+  copy.addEventListener("click", function () {
+    /* Without clipboard access the command above can still be selected
+       and copied by hand. */
+    var cantCopy = "Couldn't copy it: select the command above and copy it by hand.";
+    if (!navigator.clipboard) {
+      markError(copied);
+      copied.textContent = cantCopy;
+      return;
+    }
+    navigator.clipboard.writeText(command).then(function () {
+      markOk(copied);
+      copied.textContent = "Copied.";
+    }, function () {
+      markError(copied);
+      copied.textContent = cantCopy;
+    });
+  });
+}
+
+/* Copy the open log, unchanged, into evidence/ under a name the user types
+   (POST /evidence). The server checks the name and never overwrites. */
+function showEvidenceCopy(path) {
+  main.appendChild(element("h3", "Copy into evidence/"));
+  markWarning(main.appendChild(element("p", "The whole log is copied as it is saved, control codes " +
+    "included. Logs can hold secrets such as passwords and keys: redact them before " +
+    "any of it goes into a report.")));
+  var name = element("input");
+  name.type = "text";
+  addField(main, "File name (letters, digits, . _ - only)", name);
+  var copy = element("button", "Copy");
+  copy.type = "button";
+  main.appendChild(element("div")).appendChild(copy);
+  var status = main.appendChild(element("div"));
+  status.className = "message";
+
+  copy.addEventListener("click", function () {
+    /* Locked until the answer, so one click makes at most one copy. */
+    copy.disabled = true;
+    status.textContent = "";
+    function notCopied(text) {
+      /* The name stays in its box, so the user can correct it. */
+      copy.disabled = false;
+      markError(status);
+      status.appendChild(element("p", text));
+    }
+    fetch("/evidence", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CPTC-Token": TOKEN},
+      body: JSON.stringify({path: path, name: name.value})
+    }).then(function (response) {
+      if (!response.ok) {
+        return response.text().then(notCopied);
+      }
+      return response.json().then(function (result) {
+        copy.disabled = false;
+        markOk(status);
+        status.appendChild(element("p", "Copied to " + result.path));
+        /* The answer always carries the redact reminder, so a copy is
+           amber, like any done block holding a warning (LOOK-02). */
+        markWarning(status);
+        status.appendChild(element("p", result.warning));
+      });
+    }).catch(function (error) {
+      notCopied("Not copied: " + error);
     });
   });
 }
@@ -2372,11 +3002,15 @@ function showFillIn(data, unsaved) {
   main.textContent = "";
   main.appendChild(element("h2", data.path));
   var statusLine = main.appendChild(element("p"));
+  statusLine.className = "message";
   /* After a Save: that it saved, then each warning from the server (N5 F3),
      which starts with its box's name. Or why a save failed. */
   var messages = main.appendChild(element("div"));
+  messages.className = "message";
   /* Why the page stays on this file, with a way to leave anyway. */
   var leaveRow = main.appendChild(element("div"));
+  /* Only ever "this file's text isn't saved". */
+  markError(leaveRow);
   if (unsaved !== undefined) {
     showUnsaved(unsaved);
   }
@@ -2392,6 +3026,7 @@ function showFillIn(data, unsaved) {
   addField(main, "The file", fileText);
   /* "saved at HH:MM:SS", or "not saved yet" after typing. */
   var savedLine = main.appendChild(element("p", ""));
+  savedLine.className = "message";
   showBoxes(data);
 
   /* The status line and a box per marker, from a GET or a save's answer. */
@@ -2604,6 +3239,7 @@ function showFillIn(data, unsaved) {
       done();
       failed();
       messages.textContent = "";
+      markError(messages);
       messages.appendChild(element("p", "Not saved: " + text));
       failureShown = true;
       if (status === 409) {
@@ -2627,6 +3263,7 @@ function showFillIn(data, unsaved) {
         base = result.text;
         /* Only if nothing was typed since: newer typing has its own autosave coming. */
         if (fileText.value === sent) {
+          markOk(savedLine);
           savedLine.textContent = "saved at " + new Date().toTimeString().slice(0, 8);
           textSaved = true;
           leaveRow.textContent = "";
@@ -2668,6 +3305,8 @@ function showFillIn(data, unsaved) {
   boxes.addEventListener("change", showUnsavedMark);
 
   fileText.addEventListener("input", function () {
+    /* Not an error: an autosave is on its way. */
+    savedLine.className = "message";
     savedLine.textContent = "not saved yet";
     textSaved = false;
     if (stopped) {
@@ -2697,6 +3336,7 @@ function showFillIn(data, unsaved) {
       showBoxes(result);
       messages.textContent = "";
       failureShown = false;
+      markOk(messages);
       messages.appendChild(element("p", "Saved."));
       /* A <pre>, so a value quoted in a warning keeps its lines and
          spaces when copied back (N5 F3b). */
@@ -2704,6 +3344,10 @@ function showFillIn(data, unsaved) {
         messages.appendChild(element("pre", "Warning: " + warning));
       });
       warningsShown = result.warnings.length > 0;
+      /* Saved, but with warnings to read: amber, not green (LOOK-02). */
+      if (warningsShown) {
+        markWarning(messages);
+      }
     }, function () {
       fileText.readOnly = false;
       lockBoxes(false);
@@ -2720,6 +3364,12 @@ document.getElementById("new-button").addEventListener("click", function () {
 document.getElementById("checklists-button").addEventListener("click", function () {
   goTo(function () {
     getJson("/checklists", showChecklistList);
+  });
+});
+
+document.getElementById("logs-button").addEventListener("click", function () {
+  goTo(function () {
+    getJson("/logs", showLogList);
   });
 });
 
@@ -2741,11 +3391,14 @@ GET_ROUTES = {"/": send_page,
               "/checklist-view": send_checklist_view,
               "/files": send_own_files,
               "/new-data": send_new_data,
-              "/file": send_editable_file}
+              "/file": send_editable_file,
+              "/logs": send_log_list,
+              "/log": send_log}
 POST_ROUTES = {"/checklist-state": save_tick,
                "/new-file": save_new_file,
                "/file": save_file,
-               "/export": save_export}
+               "/export": save_export,
+               "/evidence": save_evidence}
 
 
 class NotebookHandler(BaseHTTPRequestHandler):

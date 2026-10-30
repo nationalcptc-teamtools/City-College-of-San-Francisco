@@ -3,7 +3,7 @@
 # 19. Authenticated Users Can Add Workstations to the Domain
 
 - **Phase:** SYSTEM credentials (2024 Runlist); the 2024 file name says Administrator credentials (manual check over RDP)
-- **Risk:** 🟢 Safe to check *(proposed)*. Actually adding a computer to the domain changes the client's AD: 🔴 Risky *(proposed)*.
+- **Risk:** 🟢 Safe to check. Actually adding a computer to the domain changes the client's AD: 🔴 Risky.
 - **Tier:** Recognize
 - **Finding:** none in the library yet
 - **Runs on:** domain controllers

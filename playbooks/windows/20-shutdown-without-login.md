@@ -3,8 +3,8 @@
 # 20. Shutdown Without Login
 
 - **Phase:** Low credentials (manual check over RDP)
-- **Risk:** 🟢 Safe to check *(proposed)*. **Never click shut down: that takes a client machine offline (🔴 Risky).**
-- **Tier:** Reference *(proposed)*
+- **Risk:** 🟢 Safe to check. **Never click shut down: that takes a client machine offline (🔴 Risky).**
+- **Tier:** Reference
 - **Finding:** none in the library yet
 - **Runs on:** any Windows host
 - **Ports:** RDP

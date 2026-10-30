@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery and trust mapping
 - **Risk:** 🟢 Safe / 🔴 Risky / Prohibited: slow port reachability checks are Safe; logging in or sending any direct protocol request or controller command is Risky—**ask the client contact in writing first, every time**; anything that could stop or damage a process without permission is Prohibited
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L18 (`ot-network-segmentation`)
 - **Runs on:** routes and firewall paths between corporate, guest, development, vendor and control networks
 - **Ports:** recognized HMI and industrial ports from the scope and safe-testing sheet

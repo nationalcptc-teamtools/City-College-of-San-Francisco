@@ -46,5 +46,5 @@ Installing needs internet, which the event network may not have. Know this list 
 | Tool | What it's for |
 |---|---|
 | `tools/compile.py` | Turns findings into report-ready Markdown and runs quality checks. |
-| `tools/notebook.py` | A local web page: open and tick the checklists, list your own files, make new files from the templates, fill them in with autosave, and export one zip. Not built yet: log viewer, compile button. |
+| `tools/notebook.py` | A local web page: open and tick the checklists, list your own files, make new files from the templates, fill them in with autosave, read your terminal logs, and export one zip. Not built yet: compile button. |
 | `scripts/logged-shell.sh` | Logs the terminal session for evidence and review. |
