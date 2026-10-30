@@ -38,8 +38,14 @@ Installing needs internet, which the event network may not have. Know this list 
 | zsh autosuggestions and syntax highlighting | Faster, fewer typos | `sudo apt install zsh-autosuggestions zsh-syntax-highlighting` |
 | Wordlists and SecLists | Gobuster, the web playbooks, password cracking. Past events: simple lists like `rockyou.txt` are enough; the point is to try. Small lists are also faster and quieter | `sudo apt install wordlists seclists`; `rockyou.txt` ships gzipped: `sudo gunzip /usr/share/wordlists/rockyou.txt.gz` |
 | tmux, jq, curl | Split panes, read JSON, fetch pages | `sudo apt install tmux jq curl` |
-| Not in `kali-linux-default` | Wordlists, SMB enumeration, screenshots, fast port scan | `sudo apt install seclists enum4linux-ng gowitness rustscan` |
+| Not in `kali-linux-default` | Wordlists, SMB enumeration, screenshots, fast port scan, BloodHound | `sudo apt install seclists enum4linux-ng gowitness rustscan bloodhound` |
+| pandoc | Turns `report.md` into DOCX or PDF (`compile.py` prints the command) | `sudo apt install pandoc` |
+| pspy | Watches Linux processes. Not in `kali-linux-default`; get the binary before the event | Download from its GitHub releases page |
 | Everything else above in one go | The standard Kali tool set | `sudo apt install kali-linux-default` (large download) |
+
+Second check, every tool in the table above (prints what is missing):
+`for t in nmap nxc httpx-toolkit gobuster nikto whatweb sslscan smbclient ldapsearch snmpwalk onesixtyone evil-winrm impacket-secretsdump gowitness enum4linux-ng bloodhound pandoc; do command -v $t >/dev/null || echo "missing: $t"; done`
+On a default Kali box, `gowitness`, `enum4linux-ng`, `bloodhound`, `pspy` and SecLists were missing, and so was `jq`. `pandoc` is only needed to turn `report.md` into a DOCX or PDF.
 
 ## Our own tools
 
