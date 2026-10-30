@@ -1,0 +1,64 @@
+# This repo is PUBLIC. Never commit anything from the engagement (README.md, CONVENTIONS.md R3).
+# Event work happens in ~/cptc-work, a copy with no .git. These entries are a second safety net
+# in case someone works inside the clone by mistake. Entries starting with / apply to the repo root only.
+
+# --- Event working folders (created in the working copy on the day) ---
+/field-notes/
+/incoming/
+/build/
+/tracker/
+/report.md
+/findings/*
+!/findings/.gitkeep
+/evidence/*
+!/evidence/.gitkeep
+
+# --- Tool exports and terminal logs (logs contain typed secrets) ---
+cptc-export-*.zip
+cptc-logs/
+*.log
+
+# --- Scan output and loot named in the checklists ---
+*.gnmap
+*.nmap
+*.xml
+disc-*
+svc.*
+live.txt
+scope.txt
+users.txt
+relay.txt
+asrep.txt
+kerb.txt
+exclude.txt
+scope-web.txt
+ot-ranges.txt
+names.txt
+teammates.txt
+*.pcap
+*.pcapng
+*.hashes
+*.ccache
+*.kirbi
+*.pfx
+*bloodhound*.zip
+*_computers.json
+*_users.json
+*_groups.json
+*_domains.json
+
+# --- Live tracker copies. The blank starters in templates/tracker/ stay tracked ---
+/hosts*.csv
+/credentials*.csv
+/created-accounts*.csv
+/attack-path*.csv
+/findings-index*.csv
+
+# --- OS and editor noise ---
+.DS_Store
+__pycache__/
+*.pyc
+*.swp
+
+# --- Test scratch (tests create and delete their own files here) ---
+tools/tests/.tmp/
