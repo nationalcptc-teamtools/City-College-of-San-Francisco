@@ -4,7 +4,7 @@
 
 - **Phase:** Low credentials (a normal user login)
 - **Risk:** 🟢 Safe: changing an ID in a read-only request while logged in as our own test account. 🔴 Risky: creating test accounts, or any request that changes or deletes another user's data. Ask the client contact in writing first, every time, and log it.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L16 (`idor-broken-access-control`)
 - **Ports:** 80, 443
 - **Tools:** Burp Suite (proxy and Repeater), a browser

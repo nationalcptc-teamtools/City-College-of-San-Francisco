@@ -3,8 +3,8 @@
 # 14. Vendor Machines Are Domain-Joined
 
 - **Phase:** SYSTEM credentials (2024 Runlist); the 2024 doc says an unprivileged login is enough (manual check over RDP)
-- **Risk:** 🟢 Safe *(proposed)*: looking only
-- **Tier:** Reference *(proposed)*
+- **Risk:** 🟢 Safe: looking only
+- **Tier:** Reference
 - **Finding:** none in the library yet
 - **Runs on:** domain controllers
 - **Ports:** none (RDP)

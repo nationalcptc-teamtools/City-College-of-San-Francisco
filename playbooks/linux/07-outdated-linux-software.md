@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery and version verification
 - **Risk:** 🟢 Safe / 🟡 Noisy / 🔴 Risky: single banners and SSH algorithm review are Safe; version probes are Noisy; exploit validation, payload execution or any state change is Risky and needs approval every time
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L22 (`outdated-software`)
 - **Runs on:** Linux operating systems, SSH, databases, web/application servers and network services
 - **Ports:** any exposed service port

@@ -4,7 +4,7 @@
 
 - **Phase:** Initial access (no credentials needed)
 - **Risk:** 🟡 Noisy: the anonymous query stands out in the DC's logs (matches `checklists/10-ad-internal.md`). Read-only queries with a domain login and one login to check a recovered password are 🟢 Safe.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L01 (`anonymous-smb-ldap-access`)
 - **Runs on:** domain controllers; Windows servers running AD DS; Global Catalog servers
 - **Ports:** 389 (LDAP), 636 (LDAPS), 3268 (Global Catalog), 3269 (Global Catalog over TLS)
@@ -31,7 +31,8 @@ Related: #13 (secrets in AD comments) is the same idea, but needs a login first.
 - Check that it works with a single login. Mind the lockout policy (#26) before trying more than one.
 - Pass it to the team: it's the first credential for the authenticated playbooks.
 
-[[TODO: 2024 follow-up `ldapdomaindump` command, with placeholders in place of the Cascade practice credentials (those go under Practice). Add an "Expected:" line.]]
+python3 ldapdomaindump.py --user Cascade\\USER --password $PASS$ ldap://<TARGET_IP>:3268
+
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the query output showing the attribute that holds the password. Redact the password so only the first and last characters show (`templates/finding.md`).

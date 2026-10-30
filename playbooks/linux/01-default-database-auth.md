@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery (no credentials needed)
 - **Risk:** 🟢 Safe / 🟡 Noisy / 🔴 Risky: specific-port identification and Redis `PING` are Safe; version probes and blank/default password attempts are Noisy; reading records, executing database features or changing data is Risky and needs approval every time
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L20 (`default-credentials`)
 - **Runs on:** MySQL/MariaDB, PostgreSQL, Redis and MongoDB servers
 - **Ports:** 3306 (MySQL/MariaDB), 5432 (PostgreSQL), 6379 (Redis), 27017 (MongoDB)

@@ -3,8 +3,8 @@
 # 4. SMB Signing Not Required
 
 - **Phase:** No credentials (scan only)
-- **Risk:** 🟢 Safe *(proposed)*: a configuration check
-- **Tier:** Must know *(proposed)*
+- **Risk:** 🟢 Safe: a configuration check
+- **Tier:** Must know
 - **Finding:** library L03 (`smb-signing-not-required`)
 - **Runs on:** any Windows version; older ones (XP through Server 2012) are the most likely, but check every host
 - **Ports:** 139, 445 (SMB)

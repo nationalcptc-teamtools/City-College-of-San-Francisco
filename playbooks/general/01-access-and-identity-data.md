@@ -3,8 +3,8 @@
 # 1. Access and Identity Data: Badges, Barcodes, QR Codes
 
 - **Phase:** Any: shows up on any host, share or web app, not one lane
-- **Risk:** 🟢 Safe *(proposed)*: reading files and decoding codes. **Making or using a copied badge, pass or ticket is 🔴 Risky:** ask the client contact in writing first, every time.
-- **Tier:** Recognize *(proposed)*
+- **Risk:** 🟢 Safe: reading files and decoding codes. **Making or using a copied badge, pass or ticket is 🔴 Risky:** ask the client contact in writing first, every time.
+- **Tier:** Recognize
 - **Finding:** none in the library yet
 - **Tools:** a file share browser (or the share-listing tools in the Windows playbooks), a barcode / QR reader, a base64 decoder
 - **You need:** access to the share, host or app where the files sit
@@ -23,7 +23,7 @@ Report what the data lets someone do (enter a building, board, impersonate), not
 **Fix to recommend:** keep personal data out of codes and badges (use a lookup ID checked on the server); restrict shares holding badge data; sign or expire tokens in QR codes.
 
 ## Commands
-[[TODO: Write the steps. For barcodes, copy from the 2024 doc "Web - Expose Personally Identifiable Information.docx" (leave out the 2024 hosts, IPs, URLs, company names and screenshots). For badge files and QR codes there's no 2024 doc. Format per `templates/finding.md`: numbered steps, exact command in backticks, an "Expected:" line under each.]]
+**Use publicly available resources:** From reading a site or apps public source code to an employee's social media, use whats available to you first.
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: where the file or code was found (share path or page), with the host visible.

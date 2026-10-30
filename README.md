@@ -97,6 +97,7 @@ python3 tools/notebook.py --name <yourname>
 Open the address it prints. It does:
 - **Checklists:** not todos, but guides.
 - **Your files:** list `findings/` and `field-notes/<yourname>/`, make new ones from the templates, fill in the `[[markers]]` with autosave.
+- **Logs:** read your terminal logs, with search.
 - **Export:** one zip of your files for the report writer.
 
 Local only (`127.0.0.1`). Everything works without it. Details: `tools/README.md`.

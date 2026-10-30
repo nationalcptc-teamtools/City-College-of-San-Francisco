@@ -22,14 +22,15 @@
 - [ ] API endpoints the UI doesn't show · 🟢 Safe / 🟡 Noisy (playbooks: playbooks/web/01-unauthenticated-endpoint.md, playbooks/web/03-deprecated-api-endpoint.md, playbooks/web/06-readable-data-in-tokens.md)
 
 ## Injection
-- [ ] SQLi in search, filters, and IDs (manual first; `sqlmap` only with a low `--risk`/`--level` and never against write endpoints without thinking) · 🟡 Noisy / 🔴 Risky (playbook: playbooks/web/13-sql-injection.md)
+- [ ] SQLi in search, filters, and IDs (manual first; `sqlmap` only with a low `--risk`/`--level` and never against write endpoints without thinking) · 🟡 Noisy / 🔴 Risky Fuzzing can reveal vulnerabilities but also cause problems with many requests as it is bruteforcing (playbook: playbooks/web/13-sql-injection.md)
 - [ ] XSS in anything reflected or stored (reviews, names, notes) · 🟡 Noisy (playbook: playbooks/web/09-cross-site-scripting.md)
-- [ ] Command injection or SSRF in any "fetch URL", import, or export feature · 🟡 Noisy (playbooks: playbooks/web/12-ssrf.md, playbooks/web/17-xxe-injection.md)
+- [ ] Command injection or SSRF or XML/XXE injection in any "fetch URL", import, or export feature · 🟡 Noisy (playbooks: playbooks/web/12-ssrf.md, playbooks/web/17-xxe-injection.md)
 - [ ] File upload: type checks, where files land, and whether they execute · 🟢 Safe / 🔴 Risky (playbook: playbooks/web/21-file-upload.md)
 - [ ] API parameters that take a file path: can they return local files? Check whether the call also creates or changes records. · 🔴 Risky (playbook: playbooks/web/02-local-file-read-via-api.md)
 
+
+
 ## Cloud (if in scope)
-- [ ] Public cloud storage hosting an app or files anyone can use. Viewing is fine; submit a form at most once, with fake data. · 🟢 Safe / 🟡 Noisy (playbook: playbooks/web/04-public-cloud-storage-app.md)
 - [ ] Cloud roles any user in the account can assume; download one redacted sample at most. · 🟢 Safe (playbook: playbooks/web/05-cloud-role-anyone-can-assume.md)
 
 ## Business logic (theme park specific)
@@ -39,4 +40,4 @@
 
 ## Data sensitivity
 - [ ] Card data visible anywhere → PCI DSS context, rate severity accordingly · 🟢 Safe / 🔴 Risky (playbook: playbooks/web/23-card-payment-data.md)
-- [ ] Guest PII exposure (names, emails, birthdays, photos) → privacy impact · 🟢 Safe / 🔴 Risky (playbooks: playbooks/web/06-readable-data-in-tokens.md, playbooks/general/01-access-and-identity-data.md)
+- [ ] PII exposure (names, emails, birthdays, photos) → privacy impact · 🟢 Safe / 🔴 Risky (playbooks: playbooks/web/06-readable-data-in-tokens.md, playbooks/general/01-access-and-identity-data.md)

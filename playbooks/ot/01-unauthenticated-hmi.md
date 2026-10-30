@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery (no credentials needed)
 - **Risk:** 🟢 Safe / 🔴 Risky / Prohibited: slow, specific-port identification is Safe; opening an HMI session or logging in is Risky—**ask the client contact in writing first, every time**; anything that could stop or damage a process without permission is Prohibited
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** none in the library yet; related library L18 (`ot-network-segmentation`) when the HMI crosses an IT/OT boundary
 - **Runs on:** web HMIs, VNC-exposed control screens, operator stations and engineering workstations
 - **Ports:** site-specific web ports; 5900 and related VNC ports; identify from scope and approved discovery

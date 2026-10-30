@@ -3,8 +3,8 @@
 # 7. Exposed .git Folder
 
 - **Phase:** No credentials (content discovery)
-- **Risk:** 🟡 Noisy *(proposed)*: finding it takes content discovery (many requests). Downloading the folder once it's found is 🟢 Safe.
-- **Tier:** Must know *(proposed)*
+- **Risk:** 🟡 Noisy: finding it takes content discovery (many requests). Downloading the folder once it's found is 🟢 Safe.
+- **Tier:** Must know
 - **Finding:** none in the library yet
 - **Ports:** 80, 443
 - **Tools:** A content-discovery tool, git, a git-dumping tool

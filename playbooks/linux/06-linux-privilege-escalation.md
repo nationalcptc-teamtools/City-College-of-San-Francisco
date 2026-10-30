@@ -4,7 +4,7 @@
 
 - **Phase:** Escalation (requires a low-privilege login)
 - **Risk:** 🟢 Safe / 🔴 Risky: read-only enumeration of current privileges and permissions is Safe; invoking a privileged path, writing a cron-controlled file, using the Docker socket or obtaining root is Risky and needs approval every time
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L14 (`linux-privilege-escalation`)
 - **Runs on:** Linux servers and appliances after a permitted low-privilege login
 - **Ports:** not service-specific

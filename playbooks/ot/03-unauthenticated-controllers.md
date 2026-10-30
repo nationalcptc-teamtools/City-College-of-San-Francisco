@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery (no credentials needed)
 - **Risk:** 🟢 Safe / 🔴 Risky / Prohibited: slow port identification is Safe; any direct protocol request, controller command or value change is Risky—**ask the client contact in writing first, every time**; anything that could stop or damage a process without permission is Prohibited
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L19 (`unauthenticated-industrial-protocol`)
 - **Runs on:** PLCs, RTUs, building controllers, safety-adjacent controllers and protocol gateways
 - **Ports:** 502 Modbus/TCP; 102 S7comm; 44818/TCP and 2222/UDP EtherNet/IP; other ports listed in the safe-testing sheet

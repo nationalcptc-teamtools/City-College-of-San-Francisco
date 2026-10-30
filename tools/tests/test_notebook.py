@@ -7,11 +7,13 @@ import compile
 import ast
 import contextlib
 import datetime
+import hashlib
 import http.client
 import io
 import json
 import os
 import re
+import shlex
 import shutil
 import socket
 import stat
@@ -131,9 +133,10 @@ class ModuleSafetyTests(unittest.TestCase):
         # walk that never follows a link (N5-01), and stat reads the file types
         # that walk sees; the test below checks os.system and os.popen never appear.
         # shutil only copies a file into the zip, and zipfile only writes one
-        # (N5-02; ExportZipTests checks nothing extracts).
+        # (N5-02; ExportZipTests checks nothing extracts). shlex only quotes
+        # the terminal command the page shows (N6-05); it runs nothing.
         self.assertEqual(imported, {"argparse", "datetime", "html", "json", "os", "re", "secrets",
-                                    "shutil", "stat", "sys", "tempfile", "zipfile",
+                                    "shlex", "shutil", "stat", "sys", "tempfile", "zipfile",
                                     "http.server", "pathlib", "urllib.parse", "compile"})
 
     def test_no_command_running_call_appears(self):
@@ -4159,18 +4162,18 @@ class AppShellTests(ServerTestCase):
         parts.feed(page)
         return page, parts
 
-    def test_nav_has_the_file_list_new_checklists_and_export(self):
+    def test_nav_has_the_file_list_new_checklists_logs_and_export(self):
         page, parts = self.get_page()
         self.assertEqual(parts.inside["nav"], [("button", "theme-toggle"),
                                                ("div", "file-list"),
                                                ("button", "new-button"),
                                                ("button", "checklists-button"),
+                                               ("button", "logs-button"),
                                                ("button", "export-button")])
         self.assertEqual(parts.inside["main"], [])
-        # No Logs/Compile controls yet: the only words on the page are the
-        # four buttons'. Export comes after Checklists, where Logs will go
-        # between them (Look and layout).
-        self.assertEqual(parts.visible_text, ["Light / dark", "New", "Checklists", "Export"])
+        # No Compile control yet: the only words on the page are the five
+        # buttons', in the Look and layout order.
+        self.assertEqual(parts.visible_text, ["Light / dark", "New", "Checklists", "Logs", "Export"])
         # The file list loads when the page opens.
         self.assertIn("\nloadFiles();\n</script>", page)
 
@@ -4189,10 +4192,10 @@ class AppShellTests(ServerTestCase):
     def test_script_posts_the_token_and_locks_boxes(self):
         # The display-safety asserts are in PageSafetyTests (NT4-06).
         page, _ = self.get_page()
-        # All four POSTs (a tick, a new file, a save of a file, an export)
-        # send the token.
-        self.assertEqual(page.count('"X-CPTC-Token": TOKEN'), 4)
-        self.assertEqual(page.count("fetch("), 8)
+        # All five POSTs (a tick, a new file, a save of a file, an export,
+        # a log copied into evidence/) send the token.
+        self.assertEqual(page.count('"X-CPTC-Token": TOKEN'), 5)
+        self.assertEqual(page.count("fetch("), 9)
         self.assertIn('fetch("/new-file", {\n      method: "POST",', page)
         self.assertIn('box.type = "checkbox";', page)
         # A box is locked while its save is pending and, if the save fails,
@@ -4371,6 +4374,7 @@ class FillInPageTests(ServerTestCase):
         self.assertIn("      showBoxes(result);\n"
                       '      messages.textContent = "";\n'
                       "      failureShown = false;\n"
+                      "      markOk(messages);\n"
                       '      messages.appendChild(element("p", "Saved."));', page)
         self.assertIn("      result.warnings.forEach(function (warning) {\n"
                       '        messages.appendChild(element("pre", "Warning: " + warning));', page)
@@ -4383,6 +4387,7 @@ class FillInPageTests(ServerTestCase):
                       "      done();\n"
                       "      failed();\n"
                       '      messages.textContent = "";\n'
+                      "      markError(messages);\n"
                       '      messages.appendChild(element("p", "Not saved: " + text));', page)
 
     def test_autosave_two_seconds_after_typing_stops(self):
@@ -4390,6 +4395,8 @@ class FillInPageTests(ServerTestCase):
         page = self.get_page()
         self.assertIn("var AUTOSAVE_DELAY = 2000;", page)
         self.assertIn('  fileText.addEventListener("input", function () {\n'
+                      "    /* Not an error: an autosave is on its way. */\n"
+                      '    savedLine.className = "message";\n'
                       '    savedLine.textContent = "not saved yet";\n'
                       "    textSaved = false;\n"
                       "    if (stopped) {\n"
@@ -4404,6 +4411,7 @@ class FillInPageTests(ServerTestCase):
     def test_saved_time_shows_only_after_a_save_of_the_text_shown(self):
         page = self.get_page()
         self.assertIn("        if (fileText.value === sent) {\n"
+                      "          markOk(savedLine);\n"
                       '          savedLine.textContent = "saved at " + new Date().toTimeString().slice(0, 8);',
                       page)
 
@@ -5068,6 +5076,51 @@ class ExportZipTests(unittest.TestCase):
         self.assertEqual(skipped, ["not exported: not a regular file: evidence/scan.txt"])
         self.assertEqual(self.unzip(path), {})
 
+    def open_descriptors(self):
+        """Return how many file descriptors this process has open."""
+        # /dev/fd lists them on macOS and Linux alike.
+        return len(os.listdir("/dev/fd"))
+
+    def test_a_file_swapped_for_a_folder_after_the_manifest_is_skipped(self):
+        # C-N6-01: fdopen() used to raise IsADirectoryError here, failing the
+        # whole export and leaving the descriptor open.
+        swapped = self.home / "evidence" / "scan.txt"
+        swapped.unlink()
+        swapped.mkdir()
+        before = self.open_descriptors()
+        path, skipped = self.export_with_members([("findings/F-001-a.md", self.home / "findings/F-001-a.md"),
+                                                  ("evidence/scan.txt", swapped)])
+        self.assertEqual(self.open_descriptors(), before)
+        self.assertEqual(skipped, ["not exported: not a regular file: evidence/scan.txt"])
+        self.assertEqual(list(self.unzip(path)), ["findings/F-001-a.md"])
+
+    def test_no_descriptor_stays_open_for_a_fifo_or_a_copied_file(self):
+        fifo = self.home / "evidence" / "pipe"
+        os.mkfifo(str(fifo))
+        before = self.open_descriptors()
+        path, skipped = self.export_with_members([("findings/F-001-a.md", self.home / "findings/F-001-a.md"),
+                                                  ("evidence/pipe", fifo)])
+        self.assertEqual(self.open_descriptors(), before)
+        self.assertEqual(skipped, ["not exported: not a regular file: evidence/pipe"])
+        self.assertEqual(list(self.unzip(path)), ["findings/F-001-a.md"])
+
+    def test_a_file_that_cant_be_checked_is_skipped_and_closed(self):
+        closed = []
+        real_close = os.close
+
+        def close(descriptor):
+            closed.append(descriptor)
+            real_close(descriptor)
+
+        before = self.open_descriptors()
+        with mock.patch.object(notebook.os, "fstat", side_effect=OSError("fake fstat failure")), \
+                mock.patch.object(notebook.os, "close", close):
+            path, skipped = self.export_with_members([("evidence/scan.txt", self.home / "evidence" / "scan.txt")])
+        self.assertEqual(self.open_descriptors(), before)
+        self.assertEqual(len(closed), 1)
+        self.assertEqual(skipped, ["not exported: can't read: evidence/scan.txt (fake fstat failure)"])
+        self.assertEqual(self.unzip(path), {})
+
     def test_a_file_gone_after_the_manifest_is_skipped(self):
         gone = self.home / "evidence" / "scan.txt"
         gone.unlink()
@@ -5294,7 +5347,8 @@ class ExportPageTests(ServerTestCase):
                       "  logs.checked = false;", page)
         self.assertIn('label.appendChild(element("span", "Include logs"));', page)
         self.assertIn('main.appendChild(element("p", "Logs are large and may contain secrets such as " +\n'
-                      '    "passwords and keys. Only include them when your team needs them."));', page)
+                      '    "passwords and keys. Only include them when your team needs them.")));', page)
+        self.assertIn('markWarning(main.appendChild(element("p", "Logs are large', page)
 
     def test_the_request_carries_only_the_box(self):
         page = self.get_page()
@@ -5305,6 +5359,8 @@ class ExportPageTests(ServerTestCase):
         page = self.get_page()
         self.assertIn('status.appendChild(element("p", "Saved " + result.path));', page)
         self.assertIn('if (result.skipped.length > 0) {\n'
+                      "          /* Made, but not with everything: amber, not green (LOOK-02). */\n"
+                      "          markWarning(status);\n"
                       '          status.appendChild(element("p", "Left out of the zip:"));', page)
         self.assertIn("result.skipped.forEach(function (line) {\n"
                       '          status.appendChild(element("p", line));', page)
@@ -5313,10 +5369,1207 @@ class ExportPageTests(ServerTestCase):
         page = self.get_page()
         self.assertIn("make.disabled = true;", page)
         self.assertIn("function notMade(text) {\n      make.disabled = false;\n"
+                      "      markError(status);\n"
                       '      status.appendChild(element("p", text));', page)
         self.assertIn("return response.text().then(notMade);", page)
         self.assertIn('notMade("Not exported: " + error);', page)
 
+
+class LogPageTests(ServerTestCase):
+    """N6-03: the page's Logs view. Display safety is PageSafetyTests' (NT4-06)."""
+
+    def get_page(self):
+        response, page = self.send_full("GET", "/", self.good_host())
+        self.assertEqual(response.status, 200)
+        return page
+
+    def test_logs_button_opens_the_list_through_the_leave_check(self):
+        # goTo(), so a fill-in view with unsaved boxes asks first (N4-09).
+        page = self.get_page()
+        self.assertIn('document.getElementById("logs-button").addEventListener("click", function () {\n'
+                      "  goTo(function () {\n"
+                      '    getJson("/logs", showLogList);\n'
+                      "  });\n});", page)
+        self.assertEqual(page.count("logs-button"), 2)
+
+    def test_list_opens_each_log_and_shows_refused_ones(self):
+        page = self.get_page()
+        self.assertIn('getJson("/log?path=" + encodeURIComponent(name), showLog);', page)
+        self.assertIn('main.appendChild(element("p", "No logs in the log folder."));', page)
+        self.assertIn('markError(main.appendChild(element("p", "Not listed: " + reason)));', page)
+
+    def test_view_has_search_and_a_raw_box(self):
+        page = self.get_page()
+        self.assertIn('search.type = "text";\n  addField(main, "Show only lines containing", search);', page)
+        self.assertIn('raw.type = "checkbox";', page)
+        self.assertIn('element("span", "Raw (the log as saved, control codes included)")', page)
+        self.assertIn('search.addEventListener("input", redraw);\n'
+                      '  raw.addEventListener("change", redraw);\n  redraw();', page)
+
+    def test_search_runs_on_the_shown_text(self):
+        # G6: lines containing the text, ignoring case, in clean or raw.
+        page = self.get_page()
+        self.assertIn("var shown = matchingLines(raw.checked ? data.raw : data.clean, search.value);", page)
+        self.assertIn("function matchingLines(text, wanted) {\n"
+                      '  if (wanted === "") {\n    return text;\n  }\n'
+                      "  var needle = wanted.toLowerCase();\n"
+                      '  return text.split("\\n").filter(function (line) {\n'
+                      "    return line.toLowerCase().indexOf(needle) !== -1;\n"
+                      '  }).join("\\n");\n}', page)
+        self.assertIn('"No lines contain that text."', page)
+
+    def test_redraw_warning_and_terminal_fallback_show(self):
+        page = self.get_page()
+        self.assertIn('"backspaces are taken out. Output that redraws the screen (progress bars, spinners, " +\n'
+                      '    "full-screen tools such as vim) may still look messy here. For those, open the log " +\n'
+                      '    "in a terminal with less -R and its full path, as checklists/40-evidence-and-logging.md " +\n'
+                      '    "says (type / and a word to search, q to quit)."', page)
+        # The checklist really gives that fallback, so the two can't drift apart.
+        checklist = (support.TOOLS_DIR.parent / "checklists" / "40-evidence-and-logging.md").read_text(encoding="utf-8")
+        self.assertIn("in a terminal with `less -R ~/cptc-logs/<file>.log` "
+                      "(type `/` and a word to search, `q` to quit)", checklist)
+
+    def test_notes_and_commands_show(self):
+        # G4's "last 5 MB" note is one of data.notes.
+        page = self.get_page()
+        self.assertIn("data.notes.forEach(function (note) {\n"
+                      '    notes.appendChild(element("p", note));', page)
+        self.assertIn("if (data.commands !== null) {\n"
+                      '    main.appendChild(element("h3", "Commands (exact, from the .cmds.log)"));\n'
+                      '    main.appendChild(element("pre", data.commands)).className = "log-text";', page)
+
+    def test_log_text_goes_in_a_pre(self):
+        page = self.get_page()
+        self.assertIn('var transcript = main.appendChild(element("pre", ""));', page)
+        self.assertIn("transcript.textContent = shown;", page)
+
+
+class CleanLogTextTests(unittest.TestCase):
+    """NT6-01: clean_log_text() and the order of its four steps (BUILD-SPEC Logs)."""
+
+    def clean(self, text):
+        return notebook.clean_log_text(text)
+
+    def test_crlf_and_crcrlf_lines_survive(self):
+        self.assertEqual(self.clean("a\r\nb\r\r\nc"), "a\nb\nc")
+
+    def test_blank_windows_lines_are_kept_not_added(self):
+        self.assertEqual(self.clean("a\r\n\r\r\n\r\nb\r\r\n"), "a\n\n\nb\n")
+        self.assertEqual(self.clean("a\n\nb"), "a\n\nb")
+
+    def test_long_cr_run_before_lf_is_one_line_break(self):
+        self.assertEqual(self.clean("a\r\r\r\r\nb"), "a\nb")
+
+    def test_progress_redraw_keeps_the_final_segment(self):
+        self.assertEqual(self.clean("dl  10%\rdl  55%\rdl 100%\r\nnext\n"), "dl 100%\nnext\n")
+
+    def test_redraws_on_adjacent_lines_are_independent(self):
+        self.assertEqual(self.clean("a1\ra2\nb1\rb2\rb3\nc\n"), "a2\nb3\nc\n")
+
+    def test_line_ending_in_a_lone_cr_keeps_the_empty_last_segment(self):
+        # Literal step 2: the text after the last \r is empty. At the end
+        # of a live log this is a redraw the next output would have covered.
+        self.assertEqual(self.clean("done\nworking 50%\r"), "done\n")
+        self.assertEqual(self.clean("working 50%\r\nnext"), "working 50%\nnext")
+
+    def test_redraw_before_a_crcrlf_ending(self):
+        self.assertEqual(self.clean("x\ry\r\r\nz"), "y\nz")
+
+    def test_each_csi_form_disappears(self):
+        cases = {
+            "colour": "\x1b[31m",
+            "reset": "\x1b[0m",
+            "semicolon parameters": "\x1b[01;32;40m",
+            "private mode": "\x1b[?2004h",
+            "hide cursor": "\x1b[?25l",
+            "erase line": "\x1b[K",
+            "clear screen": "\x1b[2J",
+            "intermediate byte": "\x1b[0 q",
+        }
+        for label, code in cases.items():
+            with self.subTest(label):
+                self.assertEqual(self.clean("left" + code + "right"), "leftright")
+
+    def test_osc_disappears_with_either_terminator(self):
+        self.assertEqual(self.clean("a\x1b]0;alice@kali: ~\x07b"), "ab")
+        self.assertEqual(self.clean("see \x1b]8;;http://10.0.0.1/\x1b\\link\x1b]8;;\x1b\\ now"),
+                         "see link now")
+
+    def test_each_two_character_escape_disappears(self):
+        for code in ("\x1b(B", "\x1b)0", "\x1b=", "\x1b>"):
+            with self.subTest(code=repr(code)):
+                self.assertEqual(self.clean("a" + code + "b"), "ab")
+
+    def test_incomplete_or_unknown_escapes_stay(self):
+        cases = [
+            "a\x1b",                   # a lone ESC
+            "a\x1b[31",                # CSI with no final byte
+            "a\x1b[31\nb",             # a line feed is not a final byte
+            "a\x1b]0;title",           # OSC never ended
+            "a\x1b(!",                 # ( with a character outside A-Za-z0-9
+            "a\x1bZb",                 # an escape the spec doesn't list
+        ]
+        for text in cases:
+            with self.subTest(text=repr(text)):
+                self.assertEqual(self.clean(text), text)
+
+    def test_backspace_applies_after_escape_removal(self):
+        # Backspace first would delete the K of ESC [ K and leave "ab\x1b[X".
+        self.assertEqual(self.clean("ab\x1b[K\x08X"), "aX")
+        # What the shell echoes when a typo is fixed: BS, then erase-line.
+        self.assertEqual(self.clean("inn\x08\x1b[Kdex"), "index")
+
+    def test_repeated_backspaces(self):
+        self.assertEqual(self.clean("abc\x08\x08d"), "ad")
+
+    def test_more_backspaces_than_characters(self):
+        self.assertEqual(self.clean("ab\x08\x08\x08c"), "c")
+        self.assertEqual(self.clean("\x08x"), "x")
+        self.assertEqual(self.clean("\x08\x08"), "")
+
+    def test_backspace_at_line_start_keeps_the_line_break(self):
+        # DECISIONS 2026-10-30 Chunk N7 G1.
+        self.assertEqual(self.clean("done\n\x08next"), "done\nnext")
+        self.assertEqual(self.clean("a\r\n\x08\x08b"), "a\nb")
+        self.assertEqual(self.clean("ab\n\x08\x08\x08"), "ab\n")
+
+    def test_hostile_html_and_unicode_are_unchanged(self):
+        text = '<script>alert("fake-xss")</script> café — 日本 ✓ <img src=x onerror=alert(1)>\n'
+        self.assertEqual(self.clean(text), text)
+
+    def test_form_feed_and_unicode_line_separator_stay_in_their_line(self):
+        self.assertEqual(self.clean("a\x0cb c\rd\n"), "d\n")
+        self.assertEqual(self.clean("a\x0cb c\n"), "a\x0cb c\n")
+
+    def test_hostile_sample_matches_its_cleaned_text(self):
+        self.assertEqual(self.clean(support.HOSTILE_LOG), support.HOSTILE_LOG_CLEANED)
+
+    def test_cleaning_is_repeatable_and_reads_no_file(self):
+        failing = mock.Mock(side_effect=AssertionError("the cleaner opened a file"))
+        with mock.patch("builtins.open", failing), mock.patch("io.open", failing), \
+                mock.patch("os.open", failing):
+            first = self.clean(support.HOSTILE_LOG)
+            second = self.clean(support.HOSTILE_LOG)
+        self.assertEqual(first, second)
+        failing.assert_not_called()
+
+    def test_log_file_is_unchanged_by_reading_and_cleaning(self):
+        logdir = support.make_worktree(self) / "cptc-logs"
+        log_path, _ = support.make_hostile_logs(logdir)
+        before = log_path.read_bytes()
+        with log_path.open(encoding="utf-8", newline="") as handle:
+            self.clean(handle.read())
+        self.assertEqual(log_path.read_bytes(), before)
+
+
+def log_state(logdir):
+    """Return every file in logdir as {name: (bytes, size, mtime_ns, ctime_ns, inode, mode)}.
+
+    Access time is left out: reading a file may update it, and that is not
+    a change to the log.
+    """
+    state = {}
+    for path in sorted(Path(logdir).rglob("*")):
+        info = os.lstat(str(path))
+        content = path.read_bytes() if stat.S_ISREG(info.st_mode) else None
+        state[path.relative_to(logdir).as_posix()] = (
+            content, info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_ino, info.st_mode)
+    return state
+
+
+def write_log_bytes(logdir, name, data, mtime=None):
+    """Write one fake log's exact bytes into logdir; return its path."""
+    path = Path(logdir) / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    if mtime is not None:
+        os.utime(str(path), (mtime, mtime))
+    return path
+
+
+class LogListTests(unittest.TestCase):
+    """NT6-02: list_logs() (N6-02)."""
+
+    def setUp(self):
+        self.logdir = (support.make_worktree(self) / "cptc-logs").resolve()
+
+    def test_newest_modified_first(self):
+        support.make_hostile_logs(self.logdir, "alice_20261107T090000Z", mtime=1000000000)
+        support.make_hostile_logs(self.logdir, "alice_20261107T110000Z", mtime=1000000200)
+        support.make_hostile_logs(self.logdir, "alice_20261107T100000Z", mtime=1000000100)
+        logs, refused = notebook.list_logs(self.logdir)
+        self.assertEqual(logs, ["alice_20261107T110000Z.log", "alice_20261107T100000Z.log",
+                                "alice_20261107T090000Z.log"])
+        self.assertEqual(refused, [])
+
+    def test_order_is_by_time_not_by_name(self):
+        # The name sorts last but the file is newest.
+        write_log_bytes(self.logdir, "a-old.log", b"x\n", mtime=1000000000)
+        write_log_bytes(self.logdir, "z-new.log", b"x\n", mtime=1000000100)
+        self.assertEqual(notebook.list_logs(self.logdir)[0], ["z-new.log", "a-old.log"])
+
+    def test_same_time_sorts_by_name(self):
+        for name in ("c.log", "a.log", "b.log"):
+            write_log_bytes(self.logdir, name, b"x\n", mtime=1000000000)
+        self.assertEqual(notebook.list_logs(self.logdir)[0], ["a.log", "b.log", "c.log"])
+
+    def test_order_does_not_depend_on_the_disk(self):
+        for name in ("c.log", "a.log", "b.log"):
+            write_log_bytes(self.logdir, name, b"x\n", mtime=1000000000)
+        names = sorted(os.listdir(str(self.logdir)))
+        with mock.patch.object(notebook.os, "listdir", return_value=list(reversed(names))):
+            self.assertEqual(notebook.list_logs(self.logdir)[0], ["a.log", "b.log", "c.log"])
+
+    def test_command_index_is_left_out(self):
+        # G2: listed with its transcript only, even with no transcript.
+        support.make_hostile_logs(self.logdir)
+        write_log_bytes(self.logdir, "bob_20261107T101500Z.cmds.log", b"x\n")
+        self.assertEqual(notebook.list_logs(self.logdir), (["alice_20261107T101500Z.log"], []))
+
+    def test_any_regular_file_is_listed(self):
+        write_log_bytes(self.logdir, "notes.txt", b"x\n")
+        self.assertEqual(notebook.list_logs(self.logdir)[0], ["notes.txt"])
+
+    def test_missing_log_folder_lists_nothing_and_is_not_made(self):
+        self.assertEqual(notebook.list_logs(self.logdir), ([], []))
+        self.assertFalse(self.logdir.exists())
+
+    def test_folders_fifos_and_broken_links_are_not_listed(self):
+        write_log_bytes(self.logdir, "real.log", b"x\n")
+        (self.logdir / "old-session.log").mkdir()
+        os.mkfifo(str(self.logdir / "pipe.log"))
+        os.symlink("missing.log", str(self.logdir / "broken.log"))
+        self.assertEqual(notebook.list_logs(self.logdir), (["real.log"], []))
+
+    def test_link_inside_the_log_folder_is_listed(self):
+        target = write_log_bytes(self.logdir, "keep/real.log", b"x\n")
+        os.symlink(str(target), str(self.logdir / "linked.log"))
+        self.assertEqual(notebook.list_logs(self.logdir)[0], ["linked.log"])
+
+    def test_link_outside_the_log_folder_is_refused_by_name(self):
+        outside = support.make_worktree(self, {"secret.log": "outside\n"})
+        self.logdir.mkdir()
+        os.symlink(str(outside / "secret.log"), str(self.logdir / "away.log"))
+        logs, refused = notebook.list_logs(self.logdir)
+        self.assertEqual(logs, [])
+        self.assertEqual(len(refused), 1)
+        self.assertIn("path is outside the root: away.log -> ", refused[0])
+
+    def test_name_that_is_not_utf8_is_refused(self):
+        self.logdir.mkdir()
+        with mock.patch.object(notebook.os, "listdir", return_value=["bad\udc96.log"]):
+            self.assertEqual(notebook.list_logs(self.logdir),
+                             ([], ["name isn't UTF-8: 'bad\\udc96.log'"]))
+
+    def test_listing_changes_nothing(self):
+        support.make_hostile_logs(self.logdir)
+        before = log_state(self.logdir)
+        notebook.list_logs(self.logdir)
+        notebook.list_logs(self.logdir)
+        self.assertEqual(log_state(self.logdir), before)
+
+
+class LogReadTests(unittest.TestCase):
+    """NT6-02: read_log() and read_log_tail() (N6-02, G3-G5)."""
+
+    def setUp(self):
+        self.logdir = (support.make_worktree(self) / "cptc-logs").resolve()
+        self.log_path, self.cmds_path = support.make_hostile_logs(self.logdir)
+        self.name = self.log_path.name
+
+    def test_raw_clean_and_commands(self):
+        log = notebook.read_log(self.logdir, self.name)
+        self.assertEqual(log, {"path": self.name, "raw": support.HOSTILE_LOG,
+                               "clean": support.HOSTILE_LOG_CLEANED,
+                               "commands": support.HOSTILE_CMDS, "notes": [],
+                               "command": "less -R " + str(self.log_path)})
+
+    def test_raw_keeps_every_control_code(self):
+        raw = notebook.read_log(self.logdir, self.name)["raw"]
+        for piece in ("\r\r\n", "fake-dl  10%\rfake-dl  55%\r", "\x08", "\x1b[", "\x1b]",
+                      "\x07", "\x1b\\", "\x1b(B", "<script>"):
+            with self.subTest(piece=repr(piece)):
+                self.assertIn(piece, raw)
+
+    def test_reading_changes_nothing(self):
+        before = log_state(self.logdir)
+        notebook.read_log(self.logdir, self.name)
+        notebook.read_log(self.logdir, self.name)
+        with self.assertRaises(compile.RootError):
+            notebook.read_log(self.logdir, "../outside.log")
+        self.assertEqual(log_state(self.logdir), before)
+
+    def test_missing_command_index_is_a_note(self):
+        write_log_bytes(self.logdir, "solo.log", b"only output\n")
+        log = notebook.read_log(self.logdir, "solo.log")
+        self.assertIsNone(log["commands"])
+        self.assertEqual(log["notes"], ["No command index: solo.cmds.log isn't in the log folder."])
+
+    def test_name_without_log_ending_has_no_command_index(self):
+        write_log_bytes(self.logdir, "notes.txt", b"x\n")
+        log = notebook.read_log(self.logdir, "notes.txt")
+        self.assertIsNone(log["commands"])
+        self.assertEqual(log["notes"], ["No command index: this is a command index itself, "
+                                        "or its name doesn't end in .log."])
+
+    def test_command_index_opened_directly_looks_for_no_second_index(self):
+        log = notebook.read_log(self.logdir, self.cmds_path.name)
+        self.assertEqual(log["raw"], support.HOSTILE_CMDS)
+        self.assertIsNone(log["commands"])
+        # Chunk N7 CR-1: the note must not claim the name lacks .log.
+        self.assertEqual(log["notes"], ["No command index: this is a command index itself, "
+                                        "or its name doesn't end in .log."])
+
+    def test_command_index_linked_outside_is_refused_but_log_shows(self):
+        outside = support.make_worktree(self, {"other.cmds.log": "outside\n"})
+        write_log_bytes(self.logdir, "linked.log", b"output\n")
+        os.symlink(str(outside / "other.cmds.log"), str(self.logdir / "linked.cmds.log"))
+        log = notebook.read_log(self.logdir, "linked.log")
+        self.assertEqual(log["raw"], "output\n")
+        self.assertIsNone(log["commands"])
+        self.assertEqual(len(log["notes"]), 1)
+        self.assertTrue(log["notes"][0].startswith(
+            "Command index not shown: path is outside the root: linked.cmds.log -> "))
+
+    def test_command_index_that_is_a_fifo_is_not_opened(self):
+        write_log_bytes(self.logdir, "piped.log", b"output\n")
+        os.mkfifo(str(self.logdir / "piped.cmds.log"))
+        log = notebook.read_log(self.logdir, "piped.log")
+        self.assertIsNone(log["commands"])
+        self.assertTrue(log["notes"][0].startswith("Command index not shown: not a regular file: "))
+
+    def test_traversal_is_refused_by_name(self):
+        with self.assertRaises(compile.RootError) as caught:
+            notebook.read_log(self.logdir, "../" + self.name)
+        self.assertEqual(str(caught.exception), "path contains '..': ../" + self.name)
+
+    def test_absolute_path_outside_is_refused(self):
+        outside = support.make_worktree(self, {"x.log": "outside\n"})
+        with self.assertRaises(compile.RootError) as caught:
+            notebook.read_log(self.logdir, str(outside / "x.log"))
+        self.assertIn("path is outside the root: " + str(outside / "x.log"), str(caught.exception))
+
+    def test_absolute_path_inside_is_read(self):
+        self.assertEqual(notebook.read_log(self.logdir, str(self.log_path))["raw"], support.HOSTILE_LOG)
+
+    def test_link_outside_is_refused(self):
+        outside = support.make_worktree(self, {"x.log": "outside\n"})
+        os.symlink(str(outside / "x.log"), str(self.logdir / "away.log"))
+        with self.assertRaises(compile.RootError) as caught:
+            notebook.read_log(self.logdir, "away.log")
+        self.assertIn("path is outside the root: away.log -> ", str(caught.exception))
+
+    def test_link_inside_is_read(self):
+        # OQ-17: a link that stays inside the root is allowed.
+        os.symlink(self.name, str(self.logdir / "same.log"))
+        self.assertEqual(notebook.read_log(self.logdir, "same.log")["raw"], support.HOSTILE_LOG)
+
+    def test_nul_is_refused(self):
+        with self.assertRaises(compile.RootError):
+            notebook.read_log(self.logdir, "a\x00.log")
+
+    def test_fifo_is_refused_without_waiting(self):
+        os.mkfifo(str(self.logdir / "pipe.log"))
+        with self.assertRaises(compile.RootError) as caught:
+            notebook.read_log(self.logdir, "pipe.log")
+        self.assertIn("not a regular file: ", str(caught.exception))
+
+    def test_folder_is_refused(self):
+        (self.logdir / "old").mkdir()
+        with self.assertRaises(compile.RootError):
+            notebook.read_log(self.logdir, "old")
+        with self.assertRaises(compile.RootError):
+            notebook.read_log(self.logdir, ".")
+
+    def test_missing_and_broken_link_raise_file_not_found(self):
+        os.symlink("gone.log", str(self.logdir / "broken.log"))
+        for name in ("nothing.log", "broken.log"):
+            with self.subTest(name=name), self.assertRaises(FileNotFoundError):
+                notebook.read_log(self.logdir, name)
+
+    def test_link_swapped_in_after_the_check_is_not_followed(self):
+        # read_log_tail() gets a resolved path; a link there now was swapped in.
+        outside = support.make_worktree(self, {"x.log": "outside\n"})
+        swapped = self.logdir / "swapped.log"
+        os.symlink(str(outside / "x.log"), str(swapped))
+        with self.assertRaises(OSError):
+            notebook.read_log_tail(swapped)
+
+    def test_non_utf8_bytes_show_as_replacement_characters(self):
+        # G3: cp1252 0x96 (an en dash) in output and in a command.
+        write_log_bytes(self.logdir, "win.log", b"10.0.0.5 \x96 fake-host\r\r\n")
+        write_log_bytes(self.logdir, "win.cmds.log", b"2026-11-07 (exit 0) [/] echo \x96\n")
+        before = log_state(self.logdir)
+        log = notebook.read_log(self.logdir, "win.log")
+        self.assertEqual(log["raw"], "10.0.0.5 � fake-host\r\r\n")
+        self.assertEqual(log["clean"], "10.0.0.5 � fake-host\n")
+        self.assertEqual(log["commands"], "2026-11-07 (exit 0) [/] echo �\n")
+        self.assertEqual(log_state(self.logdir), before)
+
+    def test_utf8_bom_is_kept_in_raw(self):
+        write_log_bytes(self.logdir, "bom.log", b"\xef\xbb\xbfhello\n")
+        self.assertEqual(notebook.read_log(self.logdir, "bom.log")["raw"], "﻿hello\n")
+
+    def test_log_at_the_limit_is_whole(self):
+        data = b"line one\nline two\n"
+        write_log_bytes(self.logdir, "fits.log", data)
+        with mock.patch.object(notebook, "MAX_LOG_BYTES", len(data)):
+            self.assertEqual(notebook.read_log_tail(self.logdir / "fits.log"), (data.decode(), 0))
+
+    def test_big_log_shows_only_its_end_from_a_line_start(self):
+        # G4, with a small limit: 18 bytes over, so the tail starts mid-line
+        # and the half line is dropped too.
+        data = b"line one\nline two\nline three\n"
+        write_log_bytes(self.logdir, "big.log", data)
+        with mock.patch.object(notebook, "MAX_LOG_BYTES", len(data) - 4):
+            text, cut = notebook.read_log_tail(self.logdir / "big.log")
+        self.assertEqual((text, cut), ("line two\nline three\n", 9))
+        self.assertEqual(data[cut:].decode(), text)
+
+    def test_big_log_with_no_line_break_in_its_tail_keeps_the_tail(self):
+        write_log_bytes(self.logdir, "long.log", b"abcdefghij")
+        with mock.patch.object(notebook, "MAX_LOG_BYTES", 4):
+            self.assertEqual(notebook.read_log_tail(self.logdir / "long.log"), ("ghij", 6))
+
+    def test_big_log_note_points_to_the_terminal_command(self):
+        write_log_bytes(self.logdir, "big.log", b"line one\nline two\n")
+        write_log_bytes(self.logdir, "big.cmds.log", b"cmd one\ncmd two\n")
+        with mock.patch.object(notebook, "MAX_LOG_BYTES", 12):
+            log = notebook.read_log(self.logdir, "big.log")
+        self.assertEqual(log["raw"], "line two\n")
+        self.assertEqual(log["commands"], "cmd two\n")
+        self.assertEqual(log["notes"], [
+            "Showing only the end of this log (at most 5 MB): the first 9 bytes are left out. "
+            "To see the whole log, use the terminal command.",
+            "Showing only the end of the command index (at most 5 MB): the first 8 bytes are left out."])
+
+    def test_the_limit_is_5_mb(self):
+        self.assertEqual(notebook.MAX_LOG_BYTES, 5 * 1024 * 1024)
+
+    def test_text_added_while_reading_is_left_for_the_next_open(self):
+        # G5: the size at open is the snapshot. The patched fstat() appends
+        # to the log right after the real one has measured it.
+        real_fstat = os.fstat
+
+        def fstat_then_grow(descriptor):
+            info = real_fstat(descriptor)
+            with self.log_path.open("ab") as handle:
+                handle.write(b"added later\n")
+            return info
+
+        with mock.patch.object(notebook.os, "fstat", fstat_then_grow):
+            text, cut = notebook.read_log_tail(self.log_path)
+        self.assertEqual((text, cut), (support.HOSTILE_LOG, 0))
+        self.assertTrue(self.log_path.read_bytes().endswith(b"added later\n"))
+
+
+class LogRouteTests(ServerTestCase):
+    """NT6-02: GET /logs and GET /log through a real server."""
+
+    def setUp(self):
+        super().setUp()
+        self.log_path, _ = support.make_hostile_logs(self.logdir, mtime=1000000100)
+        support.make_hostile_logs(self.logdir, "alice_20261107T080000Z", mtime=1000000000)
+        self.logs_before = log_state(self.logdir)
+
+    def tearDown(self):
+        self.assertEqual(log_state(self.logdir), self.logs_before)
+
+    def get(self, path, host=None):
+        response, body = self.send_full("GET", path, host or self.good_host())
+        self.assert_safe_headers(response)
+        return response, body
+
+    def test_log_list_is_json_newest_first(self):
+        response, body = self.get("/logs")
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.getheader("Content-Type"), "application/json")
+        self.assertEqual(json.loads(body), {"logs": ["alice_20261107T101500Z.log",
+                                                     "alice_20261107T080000Z.log"],
+                                            "refused": []})
+
+    def test_log_is_json_with_raw_clean_and_commands(self):
+        response, body = self.get("/log?path=" + quote(self.log_path.name))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.getheader("Content-Type"), "application/json")
+        # ensure_ascii: every control code and < goes out escaped or as text
+        # inside a JSON string, never as markup.
+        self.assertNotIn("\x1b", body)
+        self.assertEqual(json.loads(body), {
+            "path": self.log_path.name, "raw": support.HOSTILE_LOG,
+            "clean": support.HOSTILE_LOG_CLEANED, "commands": support.HOSTILE_CMDS, "notes": [],
+            "command": "less -R " + shlex.quote(str(self.logdir.resolve() / self.log_path.name))})
+
+    def test_wrong_host_is_refused(self):
+        for path in ("/logs", "/log?path=" + quote(self.log_path.name)):
+            with self.subTest(path=path):
+                response, body = self.get(path, "evil.example:" + str(self.port))
+                self.assertEqual((response.status, body),
+                                 (403, "refused: use http://127.0.0.1:" + str(self.port)))
+
+    def test_bad_queries_get_a_400(self):
+        name = quote(self.log_path.name)
+        for query in ("", "?path=", "?path=" + name + "&path=" + name, "?name=" + name,
+                      "?path=" + name + "&raw=1"):
+            with self.subTest(query=query):
+                response, body = self.get("/log" + query)
+                self.assertEqual((response.status, body),
+                                 (400, "give one log: ?path=<a name from the log list>"))
+                self.assertEqual(response.getheader("Content-Type"), "text/plain; charset=utf-8")
+
+    def test_refused_path_is_a_403_naming_it(self):
+        response, body = self.get("/log?path=" + quote("../x.log"))
+        self.assertEqual((response.status, body), (403, "refused: path contains '..': ../x.log"))
+        self.assertEqual(response.getheader("Content-Type"), "text/plain; charset=utf-8")
+
+    def test_missing_log_is_a_404(self):
+        response, body = self.get("/log?path=gone.log")
+        self.assertEqual((response.status, body), (404, "no such log: gone.log"))
+
+    def test_fifo_is_a_403_without_waiting(self):
+        fifo = self.logdir / "pipe.log"
+        os.mkfifo(str(fifo))
+        try:
+            response, body = self.get("/log?path=pipe.log")
+        finally:
+            # Before tearDown() compares the log folder.
+            os.unlink(str(fifo))
+        self.assertEqual(response.status, 403)
+        self.assertTrue(body.startswith("refused: not a regular file: "), body)
+
+    def test_unreadable_log_folder_is_a_500(self):
+        with mock.patch.object(notebook.os, "listdir", side_effect=PermissionError("fake denied")):
+            response, body = self.get("/logs")
+        self.assertEqual((response.status, body), (500, "can't list the log folder: fake denied"))
+
+
+class OpenRegularFileTests(unittest.TestCase):
+    """open_regular_file(): the shared open for the log viewer and the evidence copy."""
+
+    def test_descriptor_is_closed_when_fstat_fails(self):
+        root = support.make_worktree(self, {"x.log": "x\n"})
+        closed = []
+        real_close = os.close
+
+        def close(descriptor):
+            closed.append(descriptor)
+            real_close(descriptor)
+
+        before = len(os.listdir("/dev/fd"))
+        with mock.patch.object(notebook.os, "fstat", side_effect=OSError("fake fstat failure")), \
+                mock.patch.object(notebook.os, "close", close):
+            with self.assertRaises(OSError):
+                notebook.open_regular_file(root / "x.log")
+        self.assertEqual(len(closed), 1)
+        self.assertEqual(len(os.listdir("/dev/fd")), before)
+
+
+def sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+class EvidenceCopyTests(unittest.TestCase):
+    """NT6-04: copy_log_to_evidence() (N6-04, G7, G8)."""
+
+    def setUp(self):
+        self.root = support.make_worktree(self).resolve()
+        self.logdir = (support.make_worktree(self) / "cptc-logs").resolve()
+        self.log_path, self.cmds_path = support.make_hostile_logs(self.logdir)
+        self.name = self.log_path.name
+        self.logs_before = log_state(self.logdir)
+        self.outside = support.make_worktree(self, {"secret.log": "outside\n"}).resolve()
+
+    def copy(self, name="F-001-nmap.log", path=None):
+        return notebook.copy_log_to_evidence(self.root, self.logdir, path or self.name, name)
+
+    def evidence_names(self):
+        folder = self.root / "evidence"
+        return sorted(os.listdir(str(folder))) if os.path.lexists(str(folder)) else None
+
+    def assert_logs_unchanged(self):
+        self.assertEqual(log_state(self.logdir), self.logs_before)
+
+    def test_copy_is_byte_for_byte(self):
+        self.assertEqual(self.copy(), "evidence/F-001-nmap.log")
+        copied = self.root / "evidence" / "F-001-nmap.log"
+        self.assertEqual(copied.read_bytes(), self.log_path.read_bytes())
+        self.assertEqual(sha256(copied), sha256(self.log_path))
+        self.assertEqual(copied.stat().st_size, len(support.HOSTILE_LOG.encode("utf-8")))
+        self.assert_logs_unchanged()
+
+    def test_evidence_folder_is_made_if_missing_and_used_if_there(self):
+        self.assertIsNone(self.evidence_names())
+        self.copy("one.log")
+        self.copy("two.log")
+        self.assertEqual(self.evidence_names(), ["one.log", "two.log"])
+
+    def test_command_index_and_non_utf8_logs_copy_exactly(self):
+        data = b"10.0.0.5 \x96 fake\r\r\n\x1b[31mred\x1b[0m\x08\n"
+        write_log_bytes(self.logdir, "win.log", data)
+        self.copy("win.log", "win.log")
+        self.copy("cmds.log", self.cmds_path.name)
+        self.assertEqual((self.root / "evidence" / "win.log").read_bytes(), data)
+        self.assertEqual((self.root / "evidence" / "cmds.log").read_bytes(), self.cmds_path.read_bytes())
+
+    def test_no_5_mb_cap(self):
+        # G4 caps the viewer only.
+        with mock.patch.object(notebook, "MAX_LOG_BYTES", 10):
+            self.copy()
+        self.assertEqual((self.root / "evidence" / "F-001-nmap.log").read_bytes(), self.log_path.read_bytes())
+
+    def test_copy_in_several_pieces_is_exact(self):
+        with mock.patch.object(notebook, "COPY_CHUNK_BYTES", 7):
+            self.copy()
+        self.assertEqual((self.root / "evidence" / "F-001-nmap.log").read_bytes(), self.log_path.read_bytes())
+
+    def test_text_added_during_the_copy_is_left_out(self):
+        # G8: the size at open. The patched fstat() appends to the log right
+        # after the real one has measured it.
+        real_fstat = os.fstat
+        original = self.log_path.read_bytes()
+
+        def fstat_then_grow(descriptor):
+            info = real_fstat(descriptor)
+            with self.log_path.open("ab") as handle:
+                handle.write(b"added later\n")
+            return info
+
+        with mock.patch.object(notebook.os, "fstat", fstat_then_grow):
+            self.copy()
+        self.assertEqual((self.root / "evidence" / "F-001-nmap.log").read_bytes(), original)
+        self.assertTrue(self.log_path.read_bytes().endswith(b"added later\n"))
+
+    def test_allowed_names(self):
+        for name in ("F-001_nmap.log", "a.b-c_D9", ".hidden", "...", "x"):
+            with self.subTest(name=name):
+                self.assertEqual(self.copy(name), "evidence/" + name)
+        self.assert_logs_unchanged()
+
+    def test_refused_names_change_nothing(self):
+        for name in ("a/b.log", "../x.log", "a\\b.log", "a b.log", "a\n", "a\x00.log", "café.log",
+                     "١٢.log", "", ".", "..", "a\tb", "x.log\n"):
+            with self.subTest(name=repr(name)):
+                with self.assertRaises(ValueError) as caught:
+                    self.copy(name)
+                self.assertIn(repr(name), str(caught.exception))
+                self.assertIsNone(self.evidence_names())
+        self.assert_logs_unchanged()
+
+    def test_existing_destinations_are_never_overwritten(self):
+        evidence = self.root / "evidence"
+        evidence.mkdir()
+        other = self.root / "other.txt"
+        other.write_text("other\n", encoding="utf-8")
+        (evidence / "file.log").write_text("kept\n", encoding="utf-8")
+        (evidence / "folder.log").mkdir()
+        os.symlink("missing.log", str(evidence / "broken.log"))
+        os.symlink(str(other), str(evidence / "inside.log"))
+        os.symlink(str(self.outside / "secret.log"), str(evidence / "outside.log"))
+        os.link(str(other), str(evidence / "hard.log"))
+        before = file_bytes(self.root)
+        outside_before = file_bytes(self.outside)
+        for name in ("file.log", "folder.log", "broken.log", "inside.log", "outside.log", "hard.log"):
+            with self.subTest(name=name):
+                with self.assertRaises(FileExistsError) as caught:
+                    self.copy(name)
+                self.assertEqual(str(caught.exception),
+                                 "evidence/" + name + " already exists; not overwriting it, pick another name")
+        self.assertEqual(file_bytes(self.root), before)
+        self.assertEqual(file_bytes(self.outside), outside_before)
+        self.assertEqual(sorted(os.listdir(str(evidence))),
+                         ["broken.log", "file.log", "folder.log", "hard.log", "inside.log", "outside.log"])
+        self.assert_logs_unchanged()
+
+    def test_a_file_made_after_the_check_is_kept(self):
+        # The name appears between the lexists() check and os.link().
+        evidence = self.root / "evidence"
+        real_link = os.link
+
+        def someone_else_first(source, target):
+            Path(target).write_text("theirs\n", encoding="utf-8")
+            real_link(source, target)
+
+        with mock.patch.object(notebook.os, "link", someone_else_first):
+            with self.assertRaises(FileExistsError):
+                self.copy("race.log")
+        self.assertEqual((evidence / "race.log").read_text(encoding="utf-8"), "theirs\n")
+        self.assertEqual(self.evidence_names(), ["race.log"])
+
+    def test_a_failed_copy_leaves_no_file(self):
+        with mock.patch.object(notebook, "copy_bytes", side_effect=OSError("fake disk full")):
+            with self.assertRaises(OSError):
+                self.copy()
+        self.assertEqual(self.evidence_names(), [])
+        self.assert_logs_unchanged()
+
+    def test_linked_evidence_folder_is_refused(self):
+        # G7: inside the root or not.
+        (self.root / "notes").mkdir()
+        for target in (self.root / "notes", self.outside):
+            with self.subTest(target=str(target)):
+                link = self.root / "evidence"
+                os.symlink(str(target), str(link))
+                with self.assertRaises(compile.RootError) as caught:
+                    self.copy()
+                self.assertEqual(str(caught.exception), "evidence is a link, not copying through it")
+                link.unlink()
+        self.assertEqual(os.listdir(str(self.root / "notes")), [])
+        self.assertEqual(sorted(os.listdir(str(self.outside))), ["secret.log"])
+
+    def test_evidence_that_is_a_file_is_refused(self):
+        (self.root / "evidence").write_text("not a folder\n", encoding="utf-8")
+        with self.assertRaises(compile.RootError) as caught:
+            self.copy()
+        self.assertEqual(str(caught.exception), "evidence is not a folder, not copying into it")
+        self.assertEqual((self.root / "evidence").read_text(encoding="utf-8"), "not a folder\n")
+
+    def test_log_folder_inside_evidence_is_never_written(self):
+        # $LOGDIR set to the root's evidence/: the log folder is read-only.
+        logdir = self.root / "evidence"
+        support.make_hostile_logs(logdir)
+        before = log_state(logdir)
+        with self.assertRaises(compile.RootError):
+            notebook.copy_log_to_evidence(self.root, logdir, self.name, "copy.log")
+        self.assertEqual(log_state(logdir), before)
+
+    def test_refused_sources_change_nothing(self):
+        os.symlink(str(self.outside / "secret.log"), str(self.logdir / "away.log"))
+        (self.logdir / "old").mkdir()
+        os.mkfifo(str(self.logdir / "pipe.log"))
+        self.logs_before = log_state(self.logdir)
+        for path in ("../" + self.name, str(self.outside / "secret.log"), "away.log", "old", "pipe.log", "a\x00.log"):
+            with self.subTest(path=repr(path)):
+                with self.assertRaises(compile.RootError):
+                    self.copy(path=path)
+                self.assertIsNone(self.evidence_names())
+        self.assert_logs_unchanged()
+
+    def test_missing_log_raises_file_not_found(self):
+        with self.assertRaises(FileNotFoundError):
+            self.copy(path="gone.log")
+        self.assertIsNone(self.evidence_names())
+
+    def test_a_log_swapped_for_a_link_after_the_check_is_not_followed(self):
+        swapped = self.logdir / "swapped.log"
+        os.symlink(str(self.outside / "secret.log"), str(swapped))
+        with mock.patch.object(notebook, "readable_log_path", return_value=swapped):
+            with self.assertRaises(OSError):
+                self.copy(path="swapped.log")
+        self.assertIsNone(self.evidence_names())
+
+
+class EvidenceRouteTests(ServerTestCase):
+    """NT6-04: POST /evidence through a real server."""
+
+    def setUp(self):
+        super().setUp()
+        self.log_path, _ = support.make_hostile_logs(self.logdir)
+        self.logs_before = log_state(self.logdir)
+
+    def tearDown(self):
+        self.assertEqual(log_state(self.logdir), self.logs_before)
+
+    def post(self, body, token="default", host=None):
+        """POST raw body bytes to /evidence; return (status, text, content type)."""
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(connection.close)
+        connection.putrequest("POST", "/evidence", skip_host=True)
+        connection.putheader("Host", host or self.good_host())
+        if token is not None:
+            connection.putheader("X-CPTC-Token", self.server.token if token == "default" else token)
+        connection.putheader("Content-Type", "application/json")
+        connection.putheader("Content-Length", str(len(body)))
+        connection.endheaders(body)
+        response = connection.getresponse()
+        text = response.read().decode("utf-8")
+        self.assert_safe_headers(response)
+        return response.status, text, response.getheader("Content-Type")
+
+    def request(self, path=None, name="F-001-nmap.log"):
+        return json.dumps({"path": path or self.log_path.name, "name": name}).encode("utf-8")
+
+    def test_copy_answers_with_its_path_and_the_redact_warning(self):
+        status, text, content_type = self.post(self.request())
+        self.assertEqual((status, content_type), (200, "application/json"), text)
+        self.assertEqual(json.loads(text), {"path": "evidence/F-001-nmap.log", "warning": notebook.REDACT_WARNING})
+        self.assertIn("redact", notebook.REDACT_WARNING)
+        self.assertEqual((self.root / "evidence" / "F-001-nmap.log").read_bytes(), self.log_path.read_bytes())
+
+    def test_token_and_host_are_required(self):
+        for options in ({"token": None}, {"token": "wrong"}, {"host": "evil.example:" + str(self.port)}):
+            with self.subTest(options=options):
+                status, text, _ = self.post(self.request(), **options)
+                self.assertEqual((status, text), (403, "refused: use http://127.0.0.1:" + str(self.port)))
+        self.assertFalse((self.root / "evidence").exists())
+
+    def test_bad_bodies_get_a_400(self):
+        bodies = [b"not json", b"[]", json.dumps({"path": self.log_path.name}).encode("utf-8"),
+                  json.dumps({"path": self.log_path.name, "name": "x.log", "extra": 1}).encode("utf-8"),
+                  json.dumps({"path": self.log_path.name, "name": 7}).encode("utf-8"),
+                  b"\xff\xfe"]
+        for body in bodies:
+            with self.subTest(body=body):
+                status, text, content_type = self.post(body)
+                self.assertEqual((status, text), (400, 'send {"path": <log name>, "name": <evidence file name>}'))
+                self.assertEqual(content_type, "text/plain; charset=utf-8")
+        self.assertFalse((self.root / "evidence").exists())
+
+    def test_oversized_body_gets_a_400(self):
+        status, text, _ = self.post(b" " * (notebook.MAX_EVIDENCE_BYTES + 1))
+        self.assertEqual((status, text), (400, "send the copy request as JSON, at most 4096 bytes"))
+
+    def test_bad_name_is_a_400(self):
+        status, text, _ = self.post(self.request(name="a b.log"))
+        self.assertEqual(status, 400)
+        self.assertTrue(text.startswith("not copied: an evidence name may use only letters"), text)
+        self.assertFalse((self.root / "evidence").exists())
+
+    def test_refused_log_is_a_403(self):
+        status, text, _ = self.post(self.request(path="../x.log"))
+        self.assertEqual((status, text), (403, "refused: path contains '..': ../x.log"))
+
+    def test_missing_log_is_a_404(self):
+        status, text, _ = self.post(self.request(path="gone.log"))
+        self.assertEqual((status, text), (404, "no such log: gone.log"))
+
+    def test_existing_name_is_a_409_and_kept(self):
+        support.write_fake_file(self.root, "evidence/F-001-nmap.log", "kept\n")
+        status, text, _ = self.post(self.request())
+        self.assertEqual((status, text), (409, "not copied: evidence/F-001-nmap.log already exists; "
+                                               "not overwriting it, pick another name"))
+        self.assertEqual((self.root / "evidence" / "F-001-nmap.log").read_text(encoding="utf-8"), "kept\n")
+
+    def test_failed_copy_is_a_500(self):
+        with mock.patch.object(notebook, "copy_bytes", side_effect=OSError("fake disk full")):
+            status, text, _ = self.post(self.request())
+        self.assertEqual((status, text), (500, "not copied: fake disk full"))
+        self.assertEqual(os.listdir(str(self.root / "evidence")), [])
+
+
+class EvidencePageTests(ServerTestCase):
+    """N6-04: the Copy into evidence/ part of the log view. Display safety is PageSafetyTests' (NT4-06)."""
+
+    def get_page(self):
+        response, page = self.send_full("GET", "/", self.good_host())
+        self.assertEqual(response.status, 200)
+        return page
+
+    def test_every_open_log_gets_the_copy_form(self):
+        page = self.get_page()
+        self.assertIn("  showEvidenceCopy(data.path);\n}", page)
+        self.assertIn('addField(main, "File name (letters, digits, . _ - only)", name);', page)
+
+    def test_redact_warning_shows_before_and_after(self):
+        page = self.get_page()
+        self.assertIn('"included. Logs can hold secrets such as passwords and keys: redact them before " +\n'
+                      '    "any of it goes into a report."', page)
+        self.assertIn('status.appendChild(element("p", "Copied to " + result.path));\n', page)
+        self.assertIn('        markWarning(status);\n'
+                      '        status.appendChild(element("p", result.warning));', page)
+
+    def test_request_sends_the_log_and_the_name(self):
+        page = self.get_page()
+        self.assertIn('fetch("/evidence", {\n      method: "POST",', page)
+        self.assertIn("body: JSON.stringify({path: path, name: name.value})", page)
+
+    def test_button_locks_until_the_answer_and_a_refusal_shows(self):
+        page = self.get_page()
+        self.assertIn("copy.disabled = true;", page)
+        self.assertIn("function notCopied(text) {\n"
+                      "      /* The name stays in its box, so the user can correct it. */\n"
+                      "      copy.disabled = false;\n"
+                      "      markError(status);\n"
+                      '      status.appendChild(element("p", text));', page)
+        self.assertIn("return response.text().then(notCopied);", page)
+        self.assertIn('notCopied("Not copied: " + error);', page)
+
+class TerminalCommandTests(unittest.TestCase):
+    """NT6-05: terminal_command() and the command read_log() gives (N6-05)."""
+
+    def test_spaced_path_gets_single_quotes_once(self):
+        self.assertEqual(notebook.terminal_command("/fake path/x.log"), "less -R '/fake path/x.log'")
+
+    def test_plain_path_needs_no_quotes(self):
+        self.assertEqual(notebook.terminal_command("/home/alice/cptc-logs/alice_20261107T101500Z.log"),
+                         "less -R /home/alice/cptc-logs/alice_20261107T101500Z.log")
+
+    def test_awkward_paths_are_exactly_shlex_quoted(self):
+        cases = {
+            "single quote": "/fake logs/it's.log",
+            "newline": "/fake logs/two\nlines.log",
+            "unicode": "/fake logs/café-日本.log",
+            "leading dash": "/fake-logs/-rf.log",
+            "dollar and backtick": "/fake logs/$(id)`id`.log",
+        }
+        for label, path in cases.items():
+            with self.subTest(label):
+                self.assertEqual(notebook.terminal_command(path), "less -R " + shlex.quote(path))
+        # The quote in it's is closed, escaped and reopened, never wrapped again.
+        self.assertEqual(notebook.terminal_command("/fake logs/it's.log"),
+                         "less -R '/fake logs/it'\"'\"'s.log'")
+
+    def test_path_object_gives_the_same_text(self):
+        self.assertEqual(notebook.terminal_command(Path("/fake path/x.log")), "less -R '/fake path/x.log'")
+
+    def test_read_log_uses_the_checked_full_path(self):
+        logdir = (support.make_worktree(self) / "fake logs").resolve()
+        log_path, _ = support.make_hostile_logs(logdir, "alice's session")
+        log = notebook.read_log(logdir, "alice's session.log")
+        self.assertEqual(log["command"], "less -R " + shlex.quote(str(logdir / "alice's session.log")))
+        self.assertTrue(log["command"].startswith("less -R '/"))
+
+    def test_a_link_inside_gives_the_file_it_points_to(self):
+        logdir = (support.make_worktree(self) / "cptc-logs").resolve()
+        log_path, _ = support.make_hostile_logs(logdir)
+        os.symlink(log_path.name, str(logdir / "same.log"))
+        self.assertEqual(notebook.read_log(logdir, "same.log")["command"],
+                         "less -R " + shlex.quote(str(log_path)))
+
+    def test_refused_paths_get_no_command(self):
+        logdir = (support.make_worktree(self) / "cptc-logs").resolve()
+        support.make_hostile_logs(logdir)
+        outside = support.make_worktree(self, {"x.log": "outside\n"})
+        os.symlink(str(outside / "x.log"), str(logdir / "away.log"))
+        with mock.patch.object(notebook, "terminal_command", side_effect=AssertionError("made a command")):
+            for path in ("../x.log", str(outside / "x.log"), "away.log"):
+                with self.subTest(path=path), self.assertRaises(compile.RootError):
+                    notebook.read_log(logdir, path)
+
+    def test_helper_runs_nothing(self):
+        failing = mock.Mock(side_effect=AssertionError("something was run"))
+        patches = [mock.patch.object(notebook.os, name, failing)
+                   for name in ("system", "popen", "execv", "execvp", "execl", "spawnv", "fork", "startfile")
+                   if hasattr(os, name)]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.assertEqual(notebook.terminal_command("/fake path/x.log"), "less -R '/fake path/x.log'")
+        failing.assert_not_called()
+
+    def test_helper_source_calls_only_quote_and_str(self):
+        function = [node for node in ast.walk(ModuleSafetyTests.TREE)
+                    if isinstance(node, ast.FunctionDef) and node.name == "terminal_command"][0]
+        calls = set()
+        for node in ast.walk(function):
+            if isinstance(node, ast.Call):
+                func = node.func
+                calls.add(func.attr if isinstance(func, ast.Attribute) else func.id)
+        self.assertEqual(calls, {"quote", "str"})
+
+
+class TerminalCommandPageTests(ServerTestCase):
+    """N6-05: the command on the log view. Display safety is PageSafetyTests' (NT4-06)."""
+
+    def get_page(self):
+        response, page = self.send_full("GET", "/", self.good_host())
+        self.assertEqual(response.status, 200)
+        return page
+
+    def test_command_shows_as_selectable_text_by_the_heading(self):
+        page = self.get_page()
+        self.assertIn('main.appendChild(element("h2", data.path));\n  showTerminalCommand(data.command);', page)
+        self.assertIn('main.appendChild(element("p", "To open this log in a terminal, paste this command there:"));\n'
+                      '  main.appendChild(element("pre", command));', page)
+
+    def test_button_puts_the_same_text_on_the_clipboard(self):
+        page = self.get_page()
+        self.assertIn('var copy = element("button", "Copy terminal command");', page)
+        self.assertIn("navigator.clipboard.writeText(command).then(function () {\n"
+                      "      markOk(copied);\n"
+                      '      copied.textContent = "Copied.";\n'
+                      "    }, function () {\n"
+                      "      markError(copied);\n"
+                      "      copied.textContent = cantCopy;", page)
+
+    def test_no_clipboard_points_to_the_text(self):
+        page = self.get_page()
+        self.assertIn('var cantCopy = "Couldn\'t copy it: select the command above and copy it by hand.";\n'
+                      "    if (!navigator.clipboard) {\n"
+                      "      markError(copied);\n"
+                      "      copied.textContent = cantCopy;\n"
+                      "      return;", page)
+
+class LookTests(ServerTestCase):
+    """LOOK-01 and LOOK-02: the page's plain style (DECISIONS 2026-10-30 LOOK-01, Chunk N7 review F1/F2).
+
+    Display safety is PageSafetyTests' (NT4-06).
+    """
+
+    # The page's colours per theme: text, background, grey, error, ok, warning.
+    LIGHT = {"text": "black", "background": "white", "grey": "#707070", "error": "#c62828", "ok": "#2e7d32",
+             "warning": "#b26a00"}
+    DARK = {"text": "#e6e6e6", "background": "#1e1e1e", "grey": "#8f8f8f", "error": "#ef5350", "ok": "#66bb6a",
+            "warning": "#ffb74d"}
+
+    def contrast(self, first, second):
+        """Return the WCAG contrast ratio of two colours (#rrggbb, black or white)."""
+        def luminance(colour):
+            colour = {"black": "#000000", "white": "#ffffff"}.get(colour, colour)
+            channels = []
+            for start in (1, 3, 5):
+                value = int(colour[start:start + 2], 16) / 255
+                channels.append(value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4)
+            return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+        high, low = sorted((luminance(first), luminance(second)), reverse=True)
+        return (high + 0.05) / (low + 0.05)
+
+    def theme_line(self, colours):
+        return ("--text: {text}; --background: {background}; --grey: {grey}; "
+                "--error: {error}; --ok: {ok}; --warning: {warning}; }}").format(**colours)
+
+    def get_style_and_script(self):
+        response, page = self.send_full("GET", "/", self.good_host())
+        self.assertEqual(response.status, 200)
+        style = page.split("<style>\n", 1)[1].split("</style>", 1)[0]
+        script = page.split("</div>\n<script>\n", 1)[1].rsplit("</script>\n</body>", 1)[0]
+        return style, script
+
+    def test_only_the_theme_colours(self):
+        style, _ = self.get_style_and_script()
+        colours = set(re.findall(r"#[0-9a-fA-F]{3,6}\b", style))
+        self.assertEqual(colours, (set(self.LIGHT.values()) | set(self.DARK.values())) - {"black", "white"})
+        self.assertNotIn("rgb", style)
+        # Both light blocks and both dark ones (F1: a soft dark grey, not black).
+        self.assertEqual(style.count(self.theme_line(self.LIGHT)), 2)
+        self.assertEqual(style.count(self.theme_line(self.DARK)), 2)
+        self.assertNotIn("--background: black", style)
+        # Colour is used only for the variables and the two message bars.
+        self.assertEqual(style.count("var(--error)"), 1)
+        self.assertEqual(style.count("var(--ok)"), 1)
+        self.assertEqual(style.count("var(--warning)"), 1)
+        # The browser's yellow <mark> is replaced.
+        self.assertIn("mark { background: none; color: inherit; font-weight: bold; }", style)
+
+    def test_every_colour_is_readable_on_its_background(self):
+        # Text 4.5:1 (WCAG AA); the grey border and disabled text, and the
+        # red and green bars, 3:1 (WCAG non-text contrast).
+        for theme in (self.LIGHT, self.DARK):
+            with self.subTest(background=theme["background"]):
+                self.assertGreaterEqual(self.contrast(theme["text"], theme["background"]), 4.5)
+                for name in ("grey", "error", "ok", "warning"):
+                    self.assertGreaterEqual(self.contrast(theme[name], theme["background"]), 3, name)
+
+    def test_only_the_message_bar_is_red_or_green(self):
+        style, script = self.get_style_and_script()
+        self.assertIn(".message.error { border-left-color: var(--error); }\n"
+                      ".message.ok { border-left-color: var(--ok); }", style)
+        self.assertIn('function markError(block) {\n  block.className = "message error";\n}', script)
+        self.assertIn('function markOk(block) {\n  block.className = "message ok";\n}', script)
+        self.assertIn(".message.warning { border-left-color: var(--warning); }", style)
+        self.assertIn('function markWarning(block) {\n  block.className = "message warning";\n}', script)
+
+    def test_errors_and_confirmations_are_marked_where_they_are_set(self):
+        _, script = self.get_style_and_script()
+        errors = [
+            'markError(main.appendChild(element("p", text)));',  # showMessage()
+            "  markError(status);\n  data.records.forEach",  # the checklist status
+            'markError(fileList.appendChild(element("p", "Not listed: " + reason)));',
+            'markError(fileList.appendChild(element("p", text)));',  # showFileListError()
+            "  markError(nnnNote);",
+            'markError(nnnRow.appendChild(element("p", "Not counted for the IR number: " + reason)));',
+            'markError(libraryRow.appendChild(element("p", "Not offered: " + reason)));',
+            'markError(main.appendChild(element("p", "Not listed: " + reason)));',  # the log list
+            "  markError(leaveRow);",
+            "      create.disabled = false;\n      markError(status);",
+            "      make.disabled = false;\n      markError(status);",
+            "      copy.disabled = false;\n      markError(status);",
+            "      markError(copied);\n      copied.textContent = cantCopy;\n      return;",
+            "      markError(copied);\n      copied.textContent = cantCopy;\n    });",
+            '      markError(messages);\n      messages.appendChild(element("p", "Not saved: " + text));',
+        ]
+        oks = [
+            '        markOk(status);\n        status.appendChild(element("p", "Created " + result.path));',
+            '        markOk(status);\n        status.appendChild(element("p", "Saved " + result.path));',
+            '        markOk(status);\n        status.appendChild(element("p", "Copied to " + result.path));',
+            '      markOk(copied);\n      copied.textContent = "Copied.";',
+            '      markOk(messages);\n      messages.appendChild(element("p", "Saved."));',
+            '          markOk(savedLine);\n          savedLine.textContent = "saved at "',
+        ]
+        # Warnings and notes are amber (F2 B); the fill-in status and "not
+        # saved yet" stay plain (test below).
+        warnings = [
+            'markWarning(main.appendChild(element("p", "Logs are large',  # Export
+            'markWarning(main.appendChild(element("p", "Shown cleaned:',  # the redraw warning
+            'markWarning(main.appendChild(element("p", "The whole log is copied',  # redact secrets
+            '  var notes = main.appendChild(element("div"));\n  markWarning(notes);',
+            '  var found = main.appendChild(element("p", ""));\n  markWarning(found);',
+            # A done block that also holds a warning, refusal or left-out
+            # line turns amber (DECISIONS 2026-10-30 Chunk N7 review F1/F2, user A).
+            "        if (result.warnings.length > 0 || result.refused.length > 0) {\n          markWarning(status);",
+            '          markWarning(status);\n          status.appendChild(element("p", "Left out of the zip:"));',
+            "      if (warningsShown) {\n        markWarning(messages);",
+            '        markWarning(status);\n        status.appendChild(element("p", result.warning));',
+        ]
+        for mark in errors + oks + warnings:
+            with self.subTest(mark=mark):
+                self.assertIn(mark, script)
+        self.assertEqual(script.count("markError("), len(errors) + 1)  # + its definition
+        self.assertEqual(script.count("markOk("), len(oks) + 1)
+        self.assertEqual(script.count("markWarning("), len(warnings) + 1)
+
+    def test_messages_stand_apart(self):
+        style, _ = self.get_style_and_script()
+        self.assertIn(".message { margin: 0.75rem 0; padding: 0.5rem 0.75rem; border: 1px solid var(--grey);\n"
+                      "           border-left: 4px solid var(--text); }", style)
+        self.assertIn(".message:empty { display: none; }", style)
+
+    def test_every_message_area_gets_the_message_style(self):
+        _, script = self.get_style_and_script()
+        # Errors (markError) are listed in the test above; these start plain.
+        hooks = [
+            'var status = form.appendChild(element("div"));\n  status.className = "message";',  # New
+            'var copied = main.appendChild(element("p", ""));\n  copied.className = "message";',
+            'var messages = main.appendChild(element("div"));\n  messages.className = "message";',
+            'var statusLine = main.appendChild(element("p"));\n  statusLine.className = "message";',
+            'var savedLine = main.appendChild(element("p", ""));\n  savedLine.className = "message";',
+            # "not saved yet" goes back to plain: an autosave is on its way.
+            '    savedLine.className = "message";\n    savedLine.textContent = "not saved yet";',
+        ]
+        for hook in hooks:
+            with self.subTest(hook=hook):
+                self.assertIn(hook, script)
+        # Export's and the evidence copy's status areas.
+        self.assertEqual(script.count('var status = main.appendChild(element("div"));\n  status.className = "message";'), 2)
+
+    def test_file_list_error_shows_as_a_message(self):
+        _, script = self.get_style_and_script()
+        self.assertIn("return response.text().then(showFileListError);\n"
+                      "  }).catch(function (error) {\n"
+                      '    showFileListError("The notebook isn\'t answering: " + error);', script)
+        self.assertIn('function showFileListError(text) {\n  fileList.textContent = "";', script)
+
+    def test_class_names_are_style_hooks_only(self):
+        # LOOK-01/02 change no behaviour: the script sets only these classes,
+        # and nothing reads one back.
+        _, script = self.get_style_and_script()
+        self.assertEqual(set(re.findall(r'className = "([^"]*)"', script)),
+                         {"selected", "message", "message error", "message ok", "message warning", "log-text"})
+        self.assertEqual(script.count("className"), script.count('className = "'))
+        self.assertNotIn("classList", script)
+        self.assertNotIn("querySelectorAll", script)
+
+    def test_log_text_is_framed_and_monospace(self):
+        style, script = self.get_style_and_script()
+        self.assertIn('transcript.className = "log-text";', script)
+        self.assertIn(".log-text { padding: 0.5rem; border: 1px solid var(--grey); max-height: 70vh; overflow: auto; }",
+                      style)
+        self.assertIn("font-family: monospace; }", style)
+
+    def test_focus_buttons_fields_and_divider(self):
+        style, _ = self.get_style_and_script()
+        self.assertIn(":focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }", style)
+        self.assertIn("button:disabled { color: var(--grey); border-color: var(--grey); cursor: default; }", style)
+        self.assertIn("label > input[type=\"text\"], label > select, label > textarea { display: block; margin-top: 0.25rem; }",
+                      style)
+        self.assertIn("nav { width: 15rem; flex-shrink: 0; padding-right: 1.5rem; border-right: 1px solid var(--grey); }",
+                      style)
+        self.assertIn("main { flex-grow: 1; min-width: 0; max-width: 65rem; }", style)
+
+    def test_no_outside_style_or_fonts(self):
+        # Constraint 1: inline only.
+        style, _ = self.get_style_and_script()
+        self.assertNotIn("@import", style)
+        self.assertNotIn("url(", style)
 
 if __name__ == "__main__":
     unittest.main()

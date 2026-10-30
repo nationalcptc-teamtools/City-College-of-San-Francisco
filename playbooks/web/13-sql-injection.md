@@ -3,8 +3,8 @@
 # 13. SQL Injection
 
 - **Phase:** No credentials or Low credentials (wherever the input is)
-- **Risk:** 🟡 Noisy *(proposed)*: detection and reading data send many odd requests. **Any test that could change or delete data is 🔴 Risky:** approval every time. Keep automated tools at their lowest risk setting.
-- **Tier:** Must know *(proposed)*
+- **Risk:** 🟡 Noisy: detection and reading data send many odd requests. **Any test that could change or delete data is 🔴 Risky:** approval every time. Keep automated tools at their lowest risk setting.
+- **Tier:** Must know
 - **Finding:** library L15 (`sql-injection`)
 - **Ports:** 80, 443
 - **Tools:** Burp Suite, sqlmap
@@ -18,7 +18,11 @@ In 2024 a search page returned a verbose database error, which showed where the 
 **Fix to recommend:** parameterized queries (prepared statements) everywhere. The 2024 doc lists the call for each language; keep that list.
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "Web - SQL Injection.docx". Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+- **Fuzzing:** using something like `wfuzz` for bruteforcing.
+
+- **sqlmap** - Using sqlmap the assessor extracted the user's table from the public database with the payload, example:
+`';select * from users`
+
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the error or changed response that shows the injection.
@@ -26,7 +30,7 @@ In 2024 a search page returned a verbose database error, which showed where the 
 - The logged commands with timestamps.
 
 ## Practice
-- PortSwigger Web Security Academy, SQL injection labs *(proposed)*
+- PortSwigger Web Security Academy, SQL injection labs
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

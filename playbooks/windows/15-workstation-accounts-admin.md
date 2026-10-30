@@ -3,9 +3,9 @@
 # 15. Workstation Accounts Have the Administrator Role
 
 - **Phase:** SYSTEM credentials (manual check over RDP)
-- **Risk:** 🟢 Safe *(proposed)*: looking only
+- **Risk:** 🟢 Safe: looking only
 - **Tier:** Recognize
-- **Finding:** L07 (`excessive-privilege-attack-path`) *(proposed)*
+- **Finding:** L07 (`excessive-privilege-attack-path`)
 - **Runs on:** any Windows host; domain controllers
 - **Tools:** RDP
 - **You need:** an Administrator username and password

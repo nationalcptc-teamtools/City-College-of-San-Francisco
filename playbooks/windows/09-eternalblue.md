@@ -3,9 +3,9 @@
 # 9. EternalBlue
 
 - **Phase:** No credentials (scan only)
-- **Risk:** 🟢 Safe to check *(proposed)*. **Exploiting is 🔴 Risky: scan only, do not exploit**.
-- **Tier:** Must know, at check level only *(proposed)*
-- **Finding:** library L22 (`outdated-software`) *(proposed)*
+- **Risk:** 🟢 Safe to check. **Exploiting is 🔴 Risky: scan only, do not exploit**.
+- **Tier:** Must know, at check level only
+- **Finding:** library L22 (`outdated-software`)
 - **Runs on:** Windows XP, Vista, 7, 8, 8.1; Server 2003 through 2012 R2, when unpatched
 - **Ports:** 139, 445 (SMB)
 - **Tools:** nmap

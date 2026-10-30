@@ -4,7 +4,7 @@
 
 - **Phase:** Escalation (any domain account)
 - **Risk:** 🟡 Noisy: the ticket requests are ordinary but logged, and many at once trip standard alerts. Cracking happens offline.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L04 (`kerberoastable-service-account`)
 - **Runs on:** AD domain controllers running Kerberos, Server 2008 through 2022
 - **Ports:** 88 (Kerberos)
@@ -19,7 +19,13 @@ Crack the ticket offline: if the password is weak, you get it. Service accounts 
 As with #7, an uncracked hash still means the setting is exposed. Report it and note a strong password as a positive.
 
 ## Commands
-[[TODO: Copy the commands from the 2024 doc "25. Windows (AD Kerberos, credentials needed) - Kerberoasting.docx". Format per `templates/finding.md`: numbered steps, exact command in backticks, an "Expected:" line under each.]]
+Note: Add the <AD_DOMAIN> to /etc/hosts before running these commands:
+
+`GetUserSPNs.py -request <AD_DOMAIN>/<USER>:<PASSWORD>`
+
+`GetUserSPNs.py -request<AD_DOMAIN>/<USER> -hashes <REPLACE WITH NTLM HASHES eg ABC:DEF>`
+
+
 
 ## Once a hash cracks
 - Check what the service account can reach, then pass the credential to the team.

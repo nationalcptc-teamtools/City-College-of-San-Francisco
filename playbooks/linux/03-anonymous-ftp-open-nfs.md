@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery (no credentials needed)
 - **Risk:** 🟢 Safe / 🟡 Noisy / 🔴 Risky: RPC/NFS export listing is Safe; the permitted anonymous FTP check is Noisy; mounting an export, reading files beyond a minimal sample or testing write access is Risky and needs approval every time
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** related library L21 (`cleartext-protocols`) for FTP transport; no dedicated anonymous-file-service entry yet
 - **Runs on:** FTP servers, rpcbind and NFS servers
 - **Ports:** 21 (FTP), 111 (rpcbind), 2049 (NFS)

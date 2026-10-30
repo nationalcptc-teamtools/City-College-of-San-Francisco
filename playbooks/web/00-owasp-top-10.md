@@ -2,7 +2,7 @@
 
 - **Phase:** Prep (study before the event; skim on game day to see what to look for)
 - **Risk:** none: a reading list, no commands
-- **Tier:** Reference *(proposed)*
+- **Tier:** Reference
 
 ## What it is
 The OWASP Top 10 is the standard list of common web-app weaknesses. The 2024 overview doc lists each category, what it looks like and the tools that find it. This page maps each to our Web playbooks.

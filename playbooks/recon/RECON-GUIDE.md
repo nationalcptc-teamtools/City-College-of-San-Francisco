@@ -410,17 +410,17 @@ Sends a few packets toward one host: 🟢 for one in-scope host. Do not trace to
 
 ## 1.10 Watching a scan and checking afterward
 
-A scan is not finished when the prompt returns: watch it while it runs, then check the targets.
+A scan isn't finished when the prompt returns. Watch it, then check the targets.
 
-**While it runs.** Add these to scans that take more than a minute:
+**While it runs.** For scans over a minute:
 
 | Flag or key | Meaning |
 |---|---|
-| `--stats-every 30s` | Print progress and the estimated finish time every 30 seconds. If the estimate is hours, stop and reduce the scan. |
-| Press `Enter` during a scan | Prints a status line without any flag |
-| `Ctrl-C` | Stops the scan. Output saved with `-oA` is partial but usable. |
+| `--stats-every 30s` | Progress and estimated finish every 30 seconds. If the estimate is hours, stop and reduce the scan. |
+| Press `Enter` during a scan | Status line, no flag needed |
+| `Ctrl-C` | Stops the scan. `-oA` output is partial but usable. |
 
-**How long should it take?** At least probes divided by rate. Use it to tell slow from stuck:
+**How long should it take?** At least probes ÷ rate. Use it to tell slow from stuck:
 
 | Scan | Probes | Rate | At least |
 |---|---|---|---|
@@ -429,19 +429,24 @@ A scan is not finished when the prompt returns: watch it while it runs, then che
 | All TCP ports, one host (step 7) | 65,535 | 300 per second | about 3.5 minutes |
 | Top 20 UDP ports, one host (step 10) | 20, plus retries | 50 per second | under a second; often minutes, because UDP retries |
 
-Retries and slow hosts add to these. If `--stats-every` shows an estimate more than ten times these numbers, stop and ask why.
+Retries and slow hosts add time. **If `--stats-every` shows more than ten times these numbers, stop and ask why.**
 
-**If a scan stops or you stop it.** Resume instead of starting over: `nmap --resume <name>.nmap` (needs output saved with `-oN` or `-oA`; resume from the normal or grepable file). Same targets and options.
+**If a scan stops or you stop it,** resume instead of starting over: `nmap --resume <name>.nmap`.
+- Needs `-oN` or `-oA` output. Resume from the normal or grepable file.
+- Same targets and options.
 
-**After every scan**, run the health check. Only compare scans of the same kind:
+**After every scan,** run the health check. Compare only scans of the same kind:
 
-1. **Are the hosts still up?** Re-run the ping sweep on the same target file: `sudo nmap -sn -n -PE -iL <targets> -oA after-<HHMM>`. 🟢 The "before" is ladder step 1's `disc-icmp.xml`.
-2. **Compare ping sweep to ping sweep** with `ndiff`, which ships with nmap (https://nmap.org/ndiff/): `ndiff disc-icmp.xml after-<HHMM>.xml`. Hosts that disappeared or appeared print as `-` and `+` lines. Never compare a port scan against a ping sweep: every port looks removed and falsely triggers the stop rule.
-3. **For fragile hosts, re-check the open ports too** (a ping only shows a host went down, not a crashed service): `nmap -sT -n -p <the ports open before> <host> -oA recheck-<host>-<HHMM>`, then `ndiff` it against that host's earlier port scan XML. 🟢
-4. **If something disappeared:** R10 applies. Stop, say it aloud, note the time and the command, and follow 1.3. Do not rerun the scan to check.
-5. **If nothing changed:** note "no change" next to the scan in your notes. That line is evidence for an incident report if something breaks later.
+1. **Are the hosts still up?** Re-run the ping sweep on the same target file: `sudo nmap -sn -n -PE -iL <targets> -oA after-<HHMM>`. 🟢
+   - The "before" is ladder step 1's `disc-icmp.xml`.
+2. **Compare ping sweep to ping sweep** with `ndiff`, which ships with nmap (https://nmap.org/ndiff/): `ndiff disc-icmp.xml after-<HHMM>.xml`.
+   - Hosts that disappeared or appeared print as `-` and `+` lines.
+   - **Never compare a port scan against a ping sweep.** Every port looks removed and falsely triggers the stop rule.
+3. **Fragile hosts: re-check the open ports too.** A ping shows a host went down, not a crashed service. `nmap -sT -n -p <the ports open before> <host> -oA recheck-<host>-<HHMM>`, then `ndiff` it against that host's earlier port scan XML. 🟢
+4. **Something disappeared:** R10 applies. Stop, say it aloud, note the time and the command, and follow 1.3. Don't rerun the scan just to check.
+5. **Nothing changed:** note "no change" next to the scan. It's evidence for an incident report if something breaks later.
 
-`ndiff` needs XML output, so always scan with `-oA` (1.8).
+`ndiff` needs XML, so always scan with `-oA` (1.8).
 
 ## 1.11 Reading nmap output, and when nothing shows up
 
@@ -624,7 +629,9 @@ Authenticated enumeration (BloodHound, shares with credentials, Kerberos checks)
 
 ## 2.5 What to write down
 
-For each Windows host, one row in `hosts.csv`: IP, hostname, OS, role (DC, file server, workstation), open ports, owner, notes. For each DC also save: domain name, NetBIOS name, functional level if shown. Findings (SMB signing off, null session, anonymous LDAP) get a finding ID the moment you see them (R6), with the exact command and output saved.
+**Per Windows host:** one row in `hosts.csv`: IP, hostname, OS, role (DC, file server, workstation), open ports, owner, notes.
+- **Per DC, also:** domain name, NetBIOS name, functional level if shown.
+- **Findings** (SMB signing off, null session, anonymous LDAP): get a finding ID the moment you see them (R6). Save the exact command and output.
 
 ## 2.6 Care on domain controllers
 
@@ -712,7 +719,9 @@ Input files, built by hand: `printf 'public\nprivate\ncommunity\n' > community.t
 
 ## 3.5 What to write down
 
-One row per host in `hosts.csv`: IP, hostname, OS guess (from banners, not from `-O`), role, open ports, owner. Per service: version string exactly as shown (needed for the report's reproduction steps). Findings spotted (anonymous FTP, open NFS, default SNMP community, old SSH algorithms) get a finding ID right away (R6).
+**Per host:** one row in `hosts.csv`: IP, hostname, OS guess (from banners, not from `-O`), role, open ports, owner.
+- **Per service:** the version string exactly as shown (needed for the report's reproduction steps).
+- **Findings** (anonymous FTP, open NFS, default SNMP community, old SSH algorithms): get a finding ID right away (R6).
 
 ## 3.6 Linux-specific cautions
 
@@ -731,7 +740,9 @@ Tools: nmap, httpx-toolkit (ProjectDiscovery httpx, https://github.com/projectdi
 
 nmap flags are in 1.6. The other tools:
 
-**Input files.** `urls.txt`: one full URL per line, written by hand from the web ports found in 4.2 step 1 (for example `http://10.0.5.20:8080`), plus any URL in `scope-web.txt`. Every host in it must be in `scope.txt` or `scope-web.txt` (1.2). `<wordlist>`: one word per line; start with `/usr/share/wordlists/dirb/common.txt` (check the path on our Kali image).
+**Input files.**
+- `urls.txt`: one full URL per line, written by hand from the web ports found in 4.2 step 1 (for example `http://10.0.5.20:8080`), plus any URL in `scope-web.txt`. Every host in it must be in `scope.txt` or `scope-web.txt` (1.2).
+- `<wordlist>`: one word per line. Start with `/usr/share/wordlists/dirb/common.txt` (check the path on our Kali image).
 
 On Kali the ProjectDiscovery tool is installed as `httpx-toolkit`. A plain `httpx` there is a different program (a Python HTTP client), so every command here uses `httpx-toolkit`.
 
@@ -756,9 +767,14 @@ On Kali the ProjectDiscovery tool may be installed as `httpx-toolkit`, and plain
 | `-s` | Silent: no progress meter |
 | `-I` | Ask for the headers only (a HEAD request) |
 
-**whatweb** `-a N`: aggression level 1 to 4. 1 (default) makes one request per target but still follows redirects, so check the final address is in scope. 3 sends extra requests for plugins that matched; 4 sends many. Rating 🟢 at 1, 🟡 at 3 and up.
+**whatweb** `-a N`: aggression level 1 to 4.
+- **1** (default): one request per target, but it follows redirects, so check the final address is in scope.
+- **3:** extra requests for plugins that matched. **4:** many.
+- Rating: 🟢 at 1, 🟡 at 3 and up.
 
-**gowitness** (`gowitness scan file -f urls.txt`): `scan file` reads URLs from the file named by `-f` and screenshots each page. Version 3 syntax (add `--write-db` to keep results in its database); flags differ between versions, so check `gowitness scan file -h` on our Kali image. Its browser follows redirects and loads images and scripts from other sites: check the URLs in `urls.txt` are in scope first.
+**gowitness** (`gowitness scan file -f urls.txt`): `scan file` reads URLs from the file named by `-f` and screenshots each page.
+- Version 3 syntax. Add `--write-db` to keep results in its database. Flags differ between versions: check `gowitness scan file -h` on our Kali image.
+- Its browser follows redirects and loads images and scripts from other sites. Check the URLs in `urls.txt` are in scope first.
 
 **sslscan / testssl.sh** `HOST:PORT`: connects several times with different TLS settings to see which protocols and ciphers the server accepts. With no options both also run test probes for known TLS bugs (Heartbleed and similar), which send crafted messages.
 
@@ -780,7 +796,10 @@ On Kali the ProjectDiscovery tool may be installed as `httpx-toolkit`, and plain
 | `-t N` | N threads |
 | `--delay T` | Each thread pauses T between its own requests (5 threads at 100ms is up to 50 requests per second) |
 
-**nikto** (🔴): `-h HOST` sets the target; `-Tuning CODES` chooses which kinds of checks run. Use `-Tuning 1,2,3` (interesting files, misconfiguration, information disclosure) and never 5, 6, 9 or `a` (remote file retrieval, denial of service, SQL injection, authentication bypass). Check the code list with `nikto -H` on our Kali version.
+**nikto** (🔴): `-h HOST` sets the target; `-Tuning CODES` chooses which checks run.
+- Use `-Tuning 1,2,3` (interesting files, misconfiguration, information disclosure).
+- **Never** 5, 6, 9 or `a` (remote file retrieval, denial of service, SQL injection, authentication bypass).
+- Check the code list with `nikto -H` on our Kali version.
 
 **Burp Community**: no flags; a proxy you point the browser at.
 
@@ -818,7 +837,9 @@ Start with a short wordlist (`common.txt`). Use a bigger one only on a claimed h
 
 ## 4.4 What to write down
 
-For each site: URL, title, server and framework versions, TLS findings, login page present, interesting paths, screenshot filename. One row per site in `hosts.csv` notes, or `field-notes/<yourname>/NOTE-web-<host>.md` when it is long. Findings (version disclosures with known issues, directory listing, exposed `.git`, missing TLS) get finding IDs immediately (R6).
+**Per site:** URL, title, server and framework versions, TLS findings, login page present, interesting paths, screenshot filename.
+- **Where:** one row per site in `hosts.csv` notes, or `field-notes/<yourname>/NOTE-web-<host>.md` when it is long.
+- **Findings** (version disclosures with known issues, directory listing, exposed `.git`, missing TLS): get finding IDs immediately (R6).
 
 ## 4.5 Proxy hygiene
 
@@ -885,7 +906,10 @@ State what was observed. "Port 445 open; SMB signing not required (`nxc smb` out
 
 # Part 6: Advanced (locked): masscan and rustscan
 
-> 🔴 **Nobody uses these until they are comfortable with everything in Part 1.** The rulebook neither bans them nor lists allowed tools (p5: teams may use "any allowed mechanisms to engage the targets, within the confines of the Scope of Work (SOW) and Rules of Engagement (ROE)"). Both are built for speed, and speed is the risk: a mistyped rate or range can flood a network faster than anyone can stop it. A past team's concurrent scanning harness warned in its own README about large traffic spikes. Practice only in the lab (see `PRACTICE-DRILLS.md`). On the event network, either needs the whole team's agreement first.
+> 🔴 **Nobody uses these until they are comfortable with everything in Part 1.**
+> - The rulebook neither bans them nor lists allowed tools (p5: teams may use "any allowed mechanisms to engage the targets, within the confines of the Scope of Work (SOW) and Rules of Engagement (ROE)").
+> - Both are built for speed, and speed is the risk: a mistyped rate or range can flood a network faster than anyone can stop it. A past team's concurrent scanning harness warned in its own README about large traffic spikes.
+> - Practice only in the lab (see `PRACTICE-DRILLS.md`). On the event network, either needs the whole team's agreement first.
 
 ## 6.1 masscan
 
@@ -991,7 +1015,11 @@ Until the storage question is answered, results land in `~/cptc-work/field-notes
 
 # Part 8: Cheat sheets
 
-Print one page per lane, and the Open port table in landscape. Ratings: 🟢 Safe, 🟡 Noisy (say it aloud), 🔴 Risky (stop and get approval), Prohibited (never). Flags are explained in 1.6 (nmap), 2.2 (Windows tools), 3.2 (Linux tools), 4.1 (web tools) and Part 6.
+Print one page per lane, and the Open port table in landscape.
+
+**Ratings:** 🟢 Safe, 🟡 Noisy (say it aloud), 🔴 Risky (stop and get approval), Prohibited (never).
+
+**Flags are explained in:** 1.6 (nmap), 2.2 (Windows tools), 3.2 (Linux tools), 4.1 (web tools) and Part 6.
 
 ## 8.1 Open port → next step
 

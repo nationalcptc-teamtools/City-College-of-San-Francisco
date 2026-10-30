@@ -4,7 +4,7 @@
 
 - **Phase:** No credentials or Low credentials (wherever the upload form is)
 - **Risk:** 🟢 Safe: finding upload forms and reading what they say they accept. 🔴 Risky: any upload. It writes a file to the client's server. Ask the client contact in writing first, every time, and log it.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** none in the library yet
 - **Ports:** 80, 443
 - **Tools:** Burp Suite, a browser

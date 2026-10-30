@@ -13,12 +13,20 @@ Every template in this repo uses the same placeholder markers. That way one sear
 
 Rules:
 
-- **Why `[[ ]]`:** it doesn't collide with things that legitimately appear in pentest evidence. `{{ }}` would collide with template-injection payloads (`{{7*7}}`) and Jinja-based report tools, and `<< >>` with shell heredocs (`<<EOF`). Bash tests do use `[[`, but always with a space after (`[[ -f x ]]`), so the QA search skips them.
+- **Why `[[ ]]`:** it doesn't collide with pentest evidence.
+  - `{{ }}` collides with template-injection payloads (`{{7*7}}`) and Jinja-based report tools.
+  - `<< >>` collides with shell heredocs (`<<EOF`).
+  - Bash tests use `[[` too, but always with a space after (`[[ -f x ]]`), so the QA search skips them.
 - **Names are UPPER_SNAKE_CASE: capital letters and underscores only, no spaces and no digits** (write `[[SECOND_HOST]]`, not `[[HOST2]]`). That's what keeps the QA search exact: it matches `[[` followed immediately by uppercase letters.
 - **If you write in Obsidian,** it will show `[[...]]` as links. That's harmless; the text stays visible.
 - **Options are separated with `/`, not `|`.** A `|` inside a Markdown table cell would split the column.
-- **One item's details are labelled list lines, not a table:** `- **Severity:** High`. Tables appear only in `report.md` and in what `compile.py` generates, because a `|` or a line break typed into a value breaks a table. Keep the leading `- `: without it, Markdown joins consecutive lines into one paragraph when rendered.
-- **The same name always means the same value.** `[[CLIENT_NAME]]` is the client's name everywhere it appears, so you can find-and-replace it in one go. If a template needs two different values of the same kind, give each its own name: `[[TIME_DETECTED]]`, `[[TIME_REPORTED]]`. A section that holds a variable number of items, such as reproduction steps, gets one marker for the whole section (`[[REPRODUCTION_STEPS]]`) rather than one per item. The one exception is the repeating rows and list items in `report.md` (one per finding, per roadmap action, per top risk). Those are patterns you copy once per item, so their markers repeat on purpose.
+- **One item's details are labelled list lines, not a table:** `- **Severity:** High`.
+  - Tables appear only in `report.md` and in what `compile.py` generates. A `|` or line break typed into a value breaks a table.
+  - Keep the leading `- `. Without it, Markdown joins the lines into one paragraph.
+- **The same name always means the same value.** `[[CLIENT_NAME]]` is the client's name everywhere, so you can find-and-replace it in one go.
+  - Two different values of the same kind get their own names: `[[TIME_DETECTED]]`, `[[TIME_REPORTED]]`.
+  - A section with a variable number of items, such as reproduction steps, gets one marker for the whole section (`[[REPRODUCTION_STEPS]]`), not one per item.
+  - **Exception:** repeating rows and list items in `report.md` (one per finding, per roadmap action, per top risk). You copy those once per item, so their markers repeat on purpose.
 - **Checklists use a different style on purpose.** Command arguments in `checklists/` are written `<range>`, `<host>`, `$DC` and so on. Those get typed at the terminal and never reach the report, so they're not markers.
 - **A finished deliverable contains zero markers.** `checklists/50-report-qa.md` has the search command.
 

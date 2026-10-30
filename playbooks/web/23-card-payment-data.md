@@ -4,7 +4,7 @@
 
 - **Phase:** Any: shows up in web pages, APIs, databases and files
 - **Risk:** 🟢 Safe: noting where card data is visible, with a redacted sample. 🔴 Risky: copying card data in bulk, or using a payment API or admin function. Ask the client contact in writing first, every time, and log it.
-- **Tier:** Recognize *(proposed)*
+- **Tier:** Recognize
 - **Finding:** none in the library yet
 - **Ports:** 80, 443; database ports if the data sits there (Linux #01)
 - **Tools:** Burp Suite, a browser

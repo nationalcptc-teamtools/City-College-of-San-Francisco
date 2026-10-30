@@ -3,8 +3,8 @@
 # 11. Windows Firewall Disabled
 
 - **Phase:** Low credentials (manual check over RDP)
-- **Risk:** 🟢 Safe *(proposed)*: looking only
-- **Tier:** Reference *(proposed)*
+- **Risk:** 🟢 Safe: looking only
+- **Tier:** Reference
 - **Finding:** none in the library yet
 - **Runs on:** any Windows host
 - **You need:** low-privileged credentials; Remote Desktop access

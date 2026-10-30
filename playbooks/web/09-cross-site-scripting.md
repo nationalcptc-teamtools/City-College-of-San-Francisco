@@ -3,8 +3,8 @@
 # 9. Cross-Site Scripting (XSS)
 
 - **Phase:** No credentials
-- **Risk:** 🟡 Noisy *(proposed)*: test payloads show up in logs and may trip a web firewall. Test in our own browser only; never send a crafted link to a real user.
-- **Tier:** Must know *(proposed)*
+- **Risk:** 🟡 Noisy: test payloads show up in logs and may trip a web firewall. Test in our own browser only; never send a crafted link to a real user.
+- **Tier:** Must know
 - **Finding:** none in the library yet
 - **Ports:** 80, 443
 - **Tools:** Browser, Burp Suite, a web scanner
@@ -20,13 +20,20 @@ The pop-up is enough proof for the report. Use the fake login only if the client
 **Fix to recommend:** encode output for where it lands (HTML, attribute, script); validate input against an allow-list.
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "Web - Reflected XSS.docx" and "Web - XSS.docx". Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+**Reflected** - Malicious script injected through a request and reflected in the server's response.
+`?q=<script>alert(1)</script>` — Payload echoed in response.
+**Stored** Malicious script saved on the server and executed when users view affected content.
+`<script>alert(1)</script>` — Payload saved in a comment or profile.
+**DOM based** Malicious script executed through client-side JavaScript handling untrusted input.
+`#<img src=x onerror=alert(1)> — Payload inserted into DOM via unsafe innerHTML.`
+
+See Portswigger XSS Cheat Sheet: `https://portswigger.net/web-security/cross-site-scripting/cheat-sheet`
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the URL with the test input and the pop-up or the reflected script in the page source.
 
 ## Practice
-- PortSwigger Web Security Academy, cross-site scripting labs *(proposed)*
+- PortSwigger Web Security Academy, cross-site scripting labs
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

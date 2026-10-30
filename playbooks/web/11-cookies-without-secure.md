@@ -3,9 +3,9 @@
 # 11. Sensitive Cookies Without the Secure Flag
 
 - **Phase:** No credentials
-- **Risk:** 🟢 Safe *(proposed)*: reading response headers.
-- **Tier:** Recognize *(proposed)*
-- **Finding:** library L17 (`web-authentication-weakness`) *(proposed)*
+- **Risk:** 🟢 Safe: reading response headers.
+- **Tier:** Recognize
+- **Finding:** library L17 (`web-authentication-weakness`)
 - **Ports:** 80, 443
 - **Tools:** Browser developer tools, Burp Suite
 - **You need:** nothing; a login shows more cookies
@@ -24,7 +24,7 @@ Report it for session cookies and cookies holding user data.
 - `evidence/F-NNN-01.png`: the `Set-Cookie` header missing the flag, cookie value redacted.
 
 ## Practice
-- Any site the team runs with a login; check its cookies *(proposed)*
+- Any site the team runs with a login; check its cookies
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

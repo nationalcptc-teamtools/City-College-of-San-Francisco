@@ -3,9 +3,9 @@
 # 1. Unauthenticated Endpoint Exposes Data
 
 - **Phase:** No credentials (content discovery)
-- **Risk:** 🟢 Safe *(proposed)*: loading a page. Capture a few redacted rows, never the whole data set.
-- **Tier:** Must know *(proposed)*
-- **Finding:** library L16 (`idor-broken-access-control`) *(proposed)*
+- **Risk:** 🟢 Safe: loading a page. Capture a few redacted rows, never the whole data set.
+- **Tier:** Must know
+- **Finding:** library L16 (`idor-broken-access-control`)
 - **Ports:** 80, 443
 - **Tools:** Browser, Burp Suite, a content-discovery tool (gobuster or similar)
 - **You need:** nothing; a list of routes helps (from content discovery, or from the app itself)
@@ -25,7 +25,7 @@ Where routes come from: content discovery, JavaScript files, API docs, or the ro
 - A count of the records exposed (for the business impact), not the records themselves.
 
 ## Practice
-- PortSwigger Web Security Academy, access control labs *(proposed)*
+- PortSwigger Web Security Academy, access control labs
 
 ---
 *Adapted from the CCSF 2024 Web playbooks. Updated by the CCSF 2026 team.*

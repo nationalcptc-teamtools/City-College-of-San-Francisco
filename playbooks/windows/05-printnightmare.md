@@ -3,9 +3,9 @@
 # 5. PrintNightmare
 
 - **Phase:** No credentials (scan only)
-- **Risk:** 🟢 Safe to check *(proposed)*. **Exploiting is 🔴 Risky: scan only, do not exploit**.
-- **Tier:** Must know, at check level only *(proposed)*
-- **Finding:** library L22 (`outdated-software`) *(proposed)*
+- **Risk:** 🟢 Safe to check. **Exploiting is 🔴 Risky: scan only, do not exploit**.
+- **Tier:** Must know, at check level only
+- **Finding:** library L22 (`outdated-software`)
 - **Runs on:** Windows 7, 8.1, 10; Server 2008 through 2022, when unpatched
 - **Ports:** 445 (SMB, which carries the Print Spooler's RPC calls)
 - **Tools:** impacket-rpcdump (Impacket), egrep

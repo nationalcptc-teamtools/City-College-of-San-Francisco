@@ -4,7 +4,7 @@
 
 - **Phase:** Low credentials (a normal user login)
 - **Risk:** 🟢 Safe: browsing a flow and reading the requests. 🔴 Risky: submitting a changed price, quantity, coupon or order. It creates or changes client records. Ask the client contact in writing first, every time, and log it.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** none in the library yet; library L16 (`idor-broken-access-control`) when the flaw is a missing permission check
 - **Ports:** 80, 443
 - **Tools:** Burp Suite (proxy and Repeater), a browser

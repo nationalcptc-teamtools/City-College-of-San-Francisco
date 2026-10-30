@@ -3,9 +3,9 @@
 # 17. Accounts with Misconfigured Privileges
 
 - **Phase:** Low credentials (LDAP, or manual check over RDP)
-- **Risk:** 🟢 Safe *(proposed)*: read-only queries. BloodHound with `-c All` is 🟡 Noisy: it connects to every computer. **Any change to an AD object (abusing the right) is 🔴 Risky:** approval every time.
+- **Risk:** 🟢 Safe: read-only queries. BloodHound with `-c All` is 🟡 Noisy: it connects to every computer. **Any change to an AD object (abusing the right) is 🔴 Risky:** approval every time.
 - **Tier:** Recognize
-- **Finding:** L07 (`excessive-privilege-attack-path`) or L08 (`dangerous-ad-acl`) *(proposed)*
+- **Finding:** L07 (`excessive-privilege-attack-path`) or L08 (`dangerous-ad-acl`)
 - **Runs on:** any Windows host; domain controllers
 - **Tools:** ldapdomaindump (the 2024 doc says "ldapdomainsearch"), RDP
 - **You need:** LDAP access with a domain account, or an RDP login

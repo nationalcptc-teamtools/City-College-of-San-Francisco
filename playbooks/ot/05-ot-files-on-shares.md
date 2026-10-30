@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery (IT side)
 - **Risk:** 🟢 Safe / 🔴 Risky / Prohibited: read-only listing and copying of in-scope files are Safe; opening a project in software that may connect to an HMI/controller is Risky—**ask the client contact in writing first, every time**; uploading a project or anything that could stop or damage a process without permission is Prohibited
-- **Tier:** Recognize *(proposed)*
+- **Tier:** Recognize
 - **Finding:** none in the library yet; related library L18 (`ot-network-segmentation`) when the files reveal or enable an IT-to-OT path
 - **Runs on:** SMB/NFS shares, collaboration folders, engineering workstations, document repositories and backup locations
 - **Ports:** ordinary approved IT file-sharing ports; do not scan controllers to find the files
@@ -27,7 +27,7 @@ For every broad scan of a range that might contain OT, use the checklist's britt
 
 1. Use IT-side hostnames, DNS, directory objects and already approved share discovery to locate likely engineering or operations folders.
    Expected: In-scope share names or paths that suggest controls, engineering, PLC, HMI, SCADA, backups, projects, vendors or configuration.
-2. [[TODO: Insert the team's approved read-only share-enumeration command from an existing IT playbook; it must not mount read-write, upload, rename or delete anything.]]
+2. On one claimed, in-scope IT file server, open an already-discovered share and list it: `smbclient //<host>/<share> -N`, then `ls` — 🟢 Safe, read-only listing. Run no `put`, `del`, `rename` or `mount`. For NFS, `showmount -e <host>` lists exports without mounting — 🟢 Safe. [[NOTE: from the Recon Field Guide Part 2 step 10 and Part 3 step 7]]
    Expected: A directory listing obtained with the tester's existing authorization.
 3. Record filenames, extensions, dates, sizes and permissions. Copy only the minimum in-scope evidence needed; do not launch macros or vendor engineering software.
    Expected: Evidence identifies the exposed OT material and who can read it without changing the source.

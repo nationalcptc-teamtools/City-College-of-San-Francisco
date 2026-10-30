@@ -4,7 +4,7 @@
 
 - **Phase:** Discovery and business-impact mapping
 - **Risk:** 🟢 Safe to identify and browse read-only features. Slow OT identification is 🟡 Noisy. Any action that changes a ticket, payment, lock, kiosk, ride, tram or process is 🔴 Risky: ask the client contact in writing first, every time, and log it. An action outside the rules or without required approval is Prohibited.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** no single library entry; use L16 (`idor-broken-access-control`), L18 (`ot-network-segmentation`) or L19 (`unauthenticated-industrial-protocol`) when the root cause fits
 - **Ports:** 80, 443 and any discovered application or control-system port
 - **Tools:** Browser developer tools, Burp Suite, httpx-toolkit

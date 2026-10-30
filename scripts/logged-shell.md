@@ -93,6 +93,8 @@ Start-Transcript -Path "$HOME\cptc-logs\alice_$(Get-Date -Format yyyyMMddTHHmmss
 
 The `prompt` line changes the PowerShell prompt to `[14:02:11] PS C:\Users\alice>`: the time (24-hour) the prompt appeared, after the previous command finished. The transcript records the prompt in front of each command, so in the transcript and in any screenshot of the window each command carries the time its prompt appeared, as on Kali. It changes only how the prompt looks and records nothing by itself. `-IncludeInvocationHeader` adds a start time above each command, which gives you the same timestamps as the Kali command index. `Stop-Transcript`, or closing the window, ends it. It records only PowerShell windows, not `cmd.exe` and not GUI or RDP actions; screenshot those. To make it automatic, put the same three lines in your PowerShell profile (`notepad $PROFILE`). As with the zsh block, add it at kickoff and remove it afterwards.
 
+To open a transcript in the notebook's Logs view, copy it to `~/cptc-logs` on your Kali box with the `scp` built into Windows (from Windows 10 version 1809): `scp "$HOME\cptc-logs\*.txt" <your Kali login>@<your Kali IP>:~/cptc-logs/`. It needs the ssh server running on your Kali box (as `scripts/pull.sh` needs on each teammate's box), and it is untested on a real Windows box so far: check it at the next Windows practice.
+
 ## Line by line
 
 **Lines 1–6: header.** `#!/usr/bin/env bash` runs the script with bash. The comments say what it does and how to use it.

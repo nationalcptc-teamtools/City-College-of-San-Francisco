@@ -4,7 +4,7 @@
 
 - **Phase:** Movement and trust mapping
 - **Risk:** 🟢 Safe to map routes and services, and one login with a known credential. Trying a credential or hash across a range of hosts (pass-the-hash) is 🟡 Noisy: many login attempts. Running commands on a client host (`evil-winrm`, `impacket-wmiexec`) or creating a tunnel, proxy or remote session is 🔴 Risky: ask the client contact in writing first, every time, and log it.
-- **Tier:** Must know *(proposed)*
+- **Tier:** Must know
 - **Finding:** library L07 (`excessive-privilege-attack-path`); related L11 (`local-admin-password-reuse`) and L18 (`ot-network-segmentation`)
 - **Runs on:** the tester workstation first; one agreed host at a time
 - **Tools:** ip, nmap, NetExec
