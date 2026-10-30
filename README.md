@@ -67,12 +67,12 @@ Source: the [official rulebook](https://cp.tc/docs/cptc-rules.pdf).
 1. Kickoff: read scope and ROE aloud, write the out-of-scope list on the whiteboard.
 2. Make your working copy (below), start a logged shell in it: `scripts/logged-shell.sh <yourname>`. Optionally start the notebook.
 3. Give each finding an ID the moment you find it, before exploiting further. Allocation is **TBD** (R6: shared doc, or per-person blocks like F-001–F-020).
-4. Finder fills `templates/finding.md` (or a library entry) and hands it to the report writer. Author edits their own file until it is pasted into `report.md`; after that, edit `report.md` (R18). Severity gets one review pass (R8).
+4. Finder fills `templates/finding.md` (or a library entry), adds a row to `tracker/findings-index.csv`, and hands it to the report writer. Author edits their own file until it is pasted into `report.md`; after that, edit `report.md` (R18). Severity gets one review pass (R8).
 5. If something breaks: stop, tell the team, file `templates/incident-report.md`. Deadline is **TBD**.
 6. Report assembly starts at the halfway point. The report writer copies `templates/report.md` to `~/cptc-work/report.md`.
 7. Before each submission, someone who didn't write it runs `checklists/50-report-qa.md`.
 
-## Working copy
+## Working copy and moving files on the day
 
 Work in a copy, never in the git clone. At kickoff, each person runs:
 

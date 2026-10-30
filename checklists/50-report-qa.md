@@ -5,9 +5,9 @@
 ## 1. Leftovers (zero hits allowed)
 - [ ] Run these from inside `~/cptc-work`.
 - [ ] Run `python3 tools/compile.py --final` first: fix every `ERROR` (it exits 1 while any is left) and check every `WARNING`. It runs its checks on the finding files (`findings/`, `incoming/*/findings/`), the `IR-`/`SU-`/`INJ-` files and the findings index (`tracker/findings-index.csv`, or `--index PATH`), but reads `report.md` only for leftover markers and older-style leftovers, and never reads the exported file, so the items below still apply. Earlier in the event, draft mode (`python3 tools/compile.py`, without `--final`) shows the same problems as warnings, without the `report.md` checks. Details: `tools/README.md`.
-- [ ] No template markers remain: `grep -rnE '\[\[[A-Z_]+' report.md findings/ incoming/*/findings/` returns nothing
-- [ ] Broad sweep: in `grep -rnF '[[' report.md findings/ incoming/*/findings/`, every hit must be real content in evidence (e.g. a bash `[[ -f x ]]` test), not a marker
-- [ ] Older-style leftovers: `grep -rnE '<<|TODO|F-XXX|IR-XXX|\bXX\b|YYYY|HH:MM' report.md findings/ incoming/*/findings/` returns nothing, apart from expected hits such as a `<<EOF` heredoc inside evidence. (`\bXX\b` skips "XXE".)
+- [ ] No template markers remain: `grep -rnE '\[\[[A-Z_]+' report.md findings/ field-notes/ incoming/*/findings/ incoming/*/field-notes/` returns nothing
+- [ ] Broad sweep: in `grep -rnF '[[' report.md findings/ field-notes/ incoming/*/findings/ incoming/*/field-notes/`, every hit must be real content in evidence (e.g. a bash `[[ -f x ]]` test), not a marker
+- [ ] Older-style leftovers: `grep -rnE '<<|TODO|F-XXX|IR-XXX|\bXX\b|YYYY|HH:MM' report.md findings/ field-notes/ incoming/*/findings/ incoming/*/field-notes/` returns nothing, apart from expected hits such as a `<<EOF` heredoc inside evidence. (`\bXX\b` skips "XXE".)
 - [ ] In the exported file, search (Ctrl-F) for `[[`, `XX` and `TODO`
 - [ ] No future tense about testing ("we will test", "planned"). Write only about what was done.
 - [ ] No reviewer comments or tracked changes left in the exported file
