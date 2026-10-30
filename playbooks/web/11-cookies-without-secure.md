@@ -18,7 +18,8 @@ Report it for session cookies and cookies holding user data.
 **Fix to recommend:** add `Secure` to the `Set-Cookie` header of every such cookie.
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "Web - Sensitive Cookies Without Secure Flag.docx". Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+- **Cookies without a secure flag set** are more vulnerable to XSS attacks
+Without the secure flag set, cookie data can be transmitted over plaintext.
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the `Set-Cookie` header missing the flag, cookie value redacted.

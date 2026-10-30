@@ -16,7 +16,8 @@ A site deployed with its `.git` folder left in place lets anyone download the re
 **Fix to recommend:** block web access to `.git` (the 2024 doc gives a one-line web-server rule), and rotate any secret found in the history.
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "Web - Git Leakage.docx". Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+Git files can be publicly accessible if incorrectly configured. A “.git” directory  found on a web-server which allowed public access could aquite to the configuration files, internal infrastructure infromation, etc. Additionally, attackers can download the directory and use git commands to access logs, commit history, and the files in the repository.
+
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the `.git` folder answering in the browser.
