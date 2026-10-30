@@ -18,7 +18,7 @@ Report it for session cookies; other cookies matter less.
 **Fix to recommend:** add `HttpOnly` to the `Set-Cookie` header of every session cookie.
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "Web - Sensitive Cookies Without HttpOnly Flag.docx". Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+- **Cookies without the HTTPOnly flag set** are more vulnerable to XSS attacks
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the `Set-Cookie` header missing the flag, cookie value redacted.

@@ -18,7 +18,7 @@ Where routes come from: content discovery, JavaScript files, API docs, or the ro
 **Fix to recommend:** remove development routes from production, and require a login on every route that returns data.
 
 ## Commands
-[[TODO: Copy the steps from the 2024 doc "Web - Unauthenticated Endpoint.docx". Leave out the 2024 hosts, IPs, URLs, company names and screenshots; use placeholders such as `$TARGET` and `$URL`. Format per `templates/finding.md`: numbered steps, exact command or browser step in backticks, an "Expected:" line under each.]]
+Endpoints or addresses that are publicly accessible when they should be behind some kind of security; getting to that endpoint will be unique to the situation.
 
 ## Evidence to capture
 - `evidence/F-NNN-01.png`: the route in the address bar and the response, personal data redacted.

@@ -66,9 +66,9 @@ Source: the [official rulebook](https://cp.tc/docs/cptc-rules.pdf).
 
 1. Kickoff: read scope and ROE aloud, write the out-of-scope list on the whiteboard.
 2. Make your working copy (below), start a logged shell in it: `scripts/logged-shell.sh <yourname>`. Optionally start the notebook.
-3. Give each finding an ID the moment you find it, before exploiting further. Allocation is **TBD** (R6: shared doc, or per-person blocks like F-001–F-020).
-4. Finder fills `templates/finding.md` (or a library entry), adds a row to `tracker/findings-index.csv`, and hands it to the report writer. Author edits their own file until it is pasted into `report.md`; after that, edit `report.md` (R18). Severity gets one review pass (R8).
-5. If something breaks: stop, tell the team, file `templates/incident-report.md`. Deadline is **TBD**.
+3. Give each finding the next free ID in your block before further testing. At kickoff, each person gets 20 IDs in order, writes the block on the whiteboard, and never reuses an ID (R6).
+4. Finder fills `templates/finding.md` (or a library entry) and hands it to the report writer, who adds its row to `tracker/findings-index.csv`. Author edits their own file until it is pasted into `report.md`; after that, edit `report.md` (R18). Severity gets one review pass (R8).
+5. If something breaks: stop, tell the team, and file `templates/incident-report.md`. Deadline is **TBD**.
 6. Report assembly starts at the halfway point. The report writer copies `templates/report.md` to `~/cptc-work/report.md`.
 7. Before each submission, someone who didn't write it runs `checklists/50-report-qa.md`.
 
@@ -94,13 +94,13 @@ A local web page for your checklists, files and notes. Start it inside the worki
 python3 tools/notebook.py --name <yourname>
 ```
 
-Open the address it prints. It does:
+Open the address it prints. It:
 - **Checklists:** not todos, but guides.
 - **Your files:** list `findings/` and `field-notes/<yourname>/`, make new ones from the templates, fill in the `[[markers]]` with autosave.
 - **Logs:** read your terminal logs, with search.
 - **Export:** one zip of your files for the report writer.
 
-Local only (`127.0.0.1`). Everything works without it. Details: `tools/README.md`.
+Local only (`127.0.0.1`). The rest of the workflow works without it. Details: `tools/README.md`.
 
 ## Getting files to the report writer
 

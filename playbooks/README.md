@@ -1,8 +1,8 @@
 # Playbooks
 
-A **playbook** is the how-to for one weakness: what it is, how to check for it, what evidence to capture and where to practise. The checklists are the game-day order; each step links to its playbook.
+A **playbook** explains one weakness, how to check for it, what evidence to capture, and where to practise. Checklists give the game-day order; each step links to its playbook.
 
-Every playbook has the same parts:
+Each playbook has:
 - Phase, Risk, Tier and Finding lines
 - "What it is"
 - Commands: numbered steps, each with an `Expected:` line
@@ -22,7 +22,7 @@ One key for the playbooks, the recon guide and the checklists.
 | 🔴 Risky | Can break or change the client's systems or data. Approval every time. |
 | Prohibited | Forbidden by the rules of engagement. Never run. |
 
-**Two labels** (for example 🟢 Safe / 🔴 Risky): the check is the lower one, the exploit the higher. The playbook's Risk line says which step is which.
+**Two labels** (for example 🟢 Safe / 🔴 Risky): the check has the lower rating; the exploit has the higher. The Risk line says which step is which.
 
 ## Tiers
 
@@ -106,7 +106,7 @@ Linux services and hosts. Identification commands come from the Recon Field Guid
 
 ## OT
 
-Industrial control systems: HMIs, controllers and the paths to them. Read the OT / ICS Safe-Testing Sheet (`checklists/30-ot-ics-safe.md`) first. ⚠️ **Anything beyond identification needs the client contact's written approval, every time.**
+Industrial control systems: HMIs, controllers and paths to them. Read the OT / ICS Safe-Testing Sheet (`checklists/30-ot-ics-safe.md`) first. ⚠️ **Anything beyond identification needs the client contact's written approval every time.**
 
 | Playbook | Phase | Risk | Finding |
 |---|---|---|---|

@@ -23,7 +23,7 @@ Note: Add the <AD_DOMAIN> to /etc/hosts before running these commands:
 
 `GetUserSPNs.py -request <AD_DOMAIN>/<USER>:<PASSWORD>`
 
-`GetUserSPNs.py -request<AD_DOMAIN>/<USER> -hashes <REPLACE WITH NTLM HASHES eg ABC:DEF>`
+`GetUserSPNs.py -request <AD_DOMAIN>/<USER> -hashes <REPLACE WITH NTLM HASHES eg ABC:DEF>`
 
 
 

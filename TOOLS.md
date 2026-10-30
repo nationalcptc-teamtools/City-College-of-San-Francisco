@@ -1,4 +1,4 @@
-Check your competition Kali box against this list at kickoff.
+Check your competition Kali box against this list at kickoff. Installing needs internet, which the event network may not have.
 
 # Tools
 
@@ -28,8 +28,7 @@ Check your competition Kali box against this list at kickoff.
 
 ## If the box is minimal
 
-Draft, needs review. Check at kickoff: `for t in rsync zsh nmap nxc curl jq tmux; do command -v $t >/dev/null || echo "missing: $t"; done` and `ls /usr/share/wordlists`.
-Installing needs internet, which the event network may not have. Know this list before game day.
+Draft, needs review. At kickoff, check: `for t in rsync zsh nmap nxc curl jq tmux; do command -v $t >/dev/null || echo "missing: $t"; done` and `ls /usr/share/wordlists`.
 
 | What | Why | How (Debian/Kali package) |
 |---|---|---|
@@ -52,5 +51,5 @@ On a default Kali box, `gowitness`, `enum4linux-ng`, `bloodhound`, `pspy` and Se
 | Tool | What it's for |
 |---|---|
 | `tools/compile.py` | Turns findings into report-ready Markdown and runs quality checks. |
-| `tools/notebook.py` | A local web page: open and tick the checklists, list your own files, make new files from the templates, fill them in with autosave, read your terminal logs, and export one zip. Not built yet: compile button. |
+| `tools/notebook.py` | A local web page: open and tick checklists, list and fill your files, make new files, read terminal logs, and export one zip. Compile button not built yet. |
 | `scripts/logged-shell.sh` | Logs the terminal session for evidence and review. |
